@@ -10,31 +10,19 @@
 
 #include "isaac_ros_stereo_image_proc/disparity_node.hpp"
 
-#include <vpi/OpenCVInterop.hpp>
-#include <vpi/algo/ConvertImageFormat.h>
-#include <vpi/algo/Rescale.h>
-#include <vpi/Image.h>
-#include <vpi/Status.h>
-#include <vpi/Stream.h>
-#include <vpi/algo/StereoDisparity.h>
-
+#include <memory>
 #include <string>
 #include <unordered_map>
 
-#include "isaac_ros_common/vpi_utilities.hpp"
+#include "cv_bridge/cv_bridge.h"
 
-// VPI status check macro
-#define CHECK_STATUS(STMT) \
-  do { \
-    VPIStatus status = (STMT); \
-    if (status != VPI_SUCCESS) { \
-      char buffer[VPI_MAX_STATUS_MESSAGE_LENGTH]; \
-      vpiGetLastStatusMessage(buffer, sizeof(buffer)); \
-      std::ostringstream ss; \
-      ss << vpiStatusGetName(status) << ": " << buffer; \
-      throw std::runtime_error(ss.str()); \
-    } \
-  } while (0);
+#include "vpi/OpenCVInterop.hpp"
+#include "vpi/algo/ConvertImageFormat.h"
+#include "vpi/algo/Rescale.h"
+#include "vpi/algo/StereoDisparity.h"
+#include "vpi/VPI.h"
+
+#include "isaac_ros_common/vpi_utilities.hpp"
 
 namespace isaac_ros
 {
@@ -42,216 +30,242 @@ namespace stereo_image_proc
 {
 
 DisparityNode::DisparityNode(const rclcpp::NodeOptions & options)
-: Node("disp_node", options),
-  backends_{isaac_ros::common::DeclareVPIBackendParameter(this, VPI_BACKEND_CUDA)}
+: Node{"disparity_node", options},
+  sub_left_image_{this, "left/image_rect"},
+  sub_right_image_{this, "right/image_rect"},
+  sub_left_info_{this, "left/camera_info"},
+  sub_right_info_{this, "right/camera_info"},
+  max_disparity_{static_cast<int>(declare_parameter("max_disparity", 64))},
+  scale_{static_cast<double>(declare_parameter("scale", 1 / 32.0))},
+  queue_size_{static_cast<int>(declare_parameter<int>(
+      "queue_size", rmw_qos_profile_default.depth))},
+  vpi_backends_{isaac_ros::common::DeclareVPIBackendParameter(this, VPI_BACKEND_CUDA)},
+  exact_sync_{std::make_shared<ExactSync>(
+      ExactPolicy(queue_size_), sub_left_image_, sub_right_image_, sub_left_info_,
+      sub_right_info_)},
+  pub_{create_publisher<stereo_msgs::msg::DisparityImage>("disparity", queue_size_)}
 {
-  using namespace std::placeholders;
-
-  // Initialize message time sync filter
-  exact_sync_.reset(
-    new ExactSync(
-      ExactPolicy(5),
-      sub_left_image_, sub_right_image_, sub_left_info_, sub_right_info_));
-  exact_sync_->registerCallback(&DisparityNode::cam_cb, this);
-
-  // Publisher
-  pub_disparity_ = create_publisher<stereo_msgs::msg::DisparityImage>("disparity", 1);
-
-  // Subscriber
-  sub_left_image_.subscribe(this, "left/image_rect");
-  sub_right_image_.subscribe(this, "right/image_rect");
-  sub_left_info_.subscribe(this, "left/camera_info");
-  sub_right_info_.subscribe(this, "right/camera_info");
-
-  // Get parameters
-  max_disparity_ = declare_parameter<int>("max_disparity", 64);
-  if (max_disparity_ < 1) {
-    RCLCPP_ERROR(this->get_logger(), "Max disparity cannot be 0");
-    return;
+  if (max_disparity_ <= 0) {
+    throw std::runtime_error("Max disparity must be strictly positive");
   }
 
-  // Initialize parameters
-  CHECK_STATUS(vpiInitConvertImageFormatParams(&conv_params_));
-  CHECK_STATUS(vpiInitConvertImageFormatParams(&scale_params_));
-  CHECK_STATUS(vpiInitStereoDisparityEstimatorCreationParams(&params_));
-  params_.maxDisparity = max_disparity_;
-  scale_params_.scale = 255.0 / (32 * params_.maxDisparity);
+  exact_sync_->registerCallback(&DisparityNode::DisparityCallback, this);
 
+  CHECK_STATUS(vpiInitStereoDisparityEstimatorCreationParams(&disparity_params_));
+  disparity_params_.maxDisparity = max_disparity_;
+
+  CHECK_STATUS(vpiInitConvertImageFormatParams(&stereo_input_scale_params_));
+  if (vpi_backends_ == VPI_BACKEND_TEGRA) {
+    stereo_input_scale_params_.scale = kTegraSupportedScale;
+  }
+
+  CHECK_STATUS(vpiInitConvertImageFormatParams(&disparity_scale_params_));
+  // Scale the per-pixel disparity output
+  disparity_scale_params_.scale = scale_;
+
+  // Initialize VPI stream
+  CHECK_STATUS(vpiStreamCreate(0, &vpi_stream_));
+
+  // TODO(jaiveers): Use a universal utility to log the backend being used
   // Print out backend used
   std::string backend_string = "CUDA";
-  if (backends_ == VPI_BACKEND_TEGRA) {
+  if (vpi_backends_ == VPI_BACKEND_TEGRA) {
     backend_string = "PVA-NVENC-VIC";
   }
   RCLCPP_INFO(this->get_logger(), "Using backend %s", backend_string.c_str());
-
-  // Initialize VPI Stream
-  vpiStreamCreate(0, &vpi_stream_);
 }
 
 DisparityNode::~DisparityNode()
 {
-  // Close VPI Stream when if still open
+  // Wait for stream to complete before destroying
   if (!vpi_stream_) {
     vpiStreamSync(vpi_stream_);
   }
-  if (backends_ == VPI_BACKEND_TEGRA) {
-    vpiImageDestroy(confidence_map_);
-    vpiImageDestroy(tmp_left_);
-    vpiImageDestroy(tmp_right_);
-  }
-  vpiPayloadDestroy(stereo_payload_);
-  vpiImageDestroy(temp_scale_);
-  vpiImageDestroy(stereo_left_);
-  vpiImageDestroy(stereo_right_);
-  vpiImageDestroy(vpi_disparity_);
   vpiStreamDestroy(vpi_stream_);
-  vpiImageDestroy(vpi_left_);
-  vpiImageDestroy(vpi_right_);
+
+  vpiImageDestroy(left_input_);
+  vpiImageDestroy(right_input_);
+  vpiImageDestroy(left_formatted_);
+  vpiImageDestroy(right_formatted_);
+  vpiImageDestroy(left_stereo_);
+  vpiImageDestroy(right_stereo_);
+  vpiPayloadDestroy(stereo_payload_);
+  vpiImageDestroy(disparity_raw_);
+  vpiImageDestroy(confidence_map_);
+  vpiImageDestroy(disparity_resized_);
+  vpiImageDestroy(disparity_);
 }
 
-void DisparityNode::cam_cb(
-  const sensor_msgs::msg::Image::ConstSharedPtr & left_rectified_,
-  const sensor_msgs::msg::Image::ConstSharedPtr & right_rectified_,
-  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & sub_left_info_,
-  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & sub_right_info_)
+void DisparityNode::DisparityCallback(
+  const sensor_msgs::msg::Image::ConstSharedPtr & left_image_msg,
+  const sensor_msgs::msg::Image::ConstSharedPtr & right_image_msg,
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & left_info_msg,
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & right_info_msg)
 {
-  // Convert images to mono8
-  const cv::Mat left_mono8 = cv_bridge::toCvShare(left_rectified_, "mono8")->image;
-  const cv::Mat right_mono8 = cv_bridge::toCvShare(right_rectified_, "mono8")->image;
-  int inputWidth, inputHeight;
-  inputWidth = left_mono8.cols;
-  inputHeight = left_mono8.rows;
+  // Extract images from ROS2 messages as grayscale
+  const cv::Mat left_input_cv = cv_bridge::toCvShare(left_image_msg, "mono8")->image;
+  const cv::Mat right_input_cv = cv_bridge::toCvShare(right_image_msg, "mono8")->image;
 
-  const bool resolution_change =
-    prev_height_ != inputHeight || prev_width_ != inputWidth;
-  const bool resolution_cache_check = prev_height_ != 0 || prev_width_ != 0;
-  if ((!vpi_left_ || !vpi_right_ ) || resolution_change) {
-    if (resolution_change && resolution_cache_check) {
-      vpiImageDestroy(vpi_left_);
-      vpiImageDestroy(vpi_right_);
-    }
-    vpiImageCreateOpenCVMatWrapper(left_mono8, 0, &vpi_left_);
-    vpiImageCreateOpenCVMatWrapper(right_mono8, 0, &vpi_right_);
+  // Check current dimensions against previous dimensions to determine if cache is valid
+  const size_t height{left_info_msg->height}, width{left_info_msg->width};
+  const bool cache_valid = (height == prev_height_) && (width == prev_width_);
+
+  if (cache_valid) {
+    // The image dimensions are the same, so rewrap using existing VPI images
+    vpiImageSetWrappedOpenCVMat(left_input_, left_input_cv);
+    vpiImageSetWrappedOpenCVMat(right_input_, right_input_cv);
   } else {
-    vpiImageSetWrappedOpenCVMat(vpi_left_, left_mono8);
-    vpiImageSetWrappedOpenCVMat(vpi_right_, right_mono8);
-  }
+    // The image dimensions have changed, so we need to recreate VPI images with the new size
 
-  if (!stereo_payload_ || resolution_change) {
-    if (resolution_change && resolution_cache_check) {
-      vpiPayloadDestroy(stereo_payload_);
-      vpiImageDestroy(stereo_left_);
-      vpiImageDestroy(stereo_right_);
-      vpiImageDestroy(vpi_disparity_);
-    }
+    // Recreate left and right input VPI images
+    vpiImageDestroy(left_input_);
+    vpiImageDestroy(right_input_);
+    CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(left_input_cv, 0, &left_input_));
+    CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(right_input_cv, 0, &right_input_));
 
-    if (backends_ == VPI_BACKEND_TEGRA) {
-      if (resolution_change && resolution_cache_check) {
-        vpiImageDestroy(confidence_map_);
-        vpiImageDestroy(tmp_left_);
-        vpiImageDestroy(tmp_right_);
-      }
-
+    if (vpi_backends_ == VPI_BACKEND_TEGRA) {
       // PVA-NVENC-VIC backend only accepts 1920x1080 images and Y16 Block linear format.
       stereo_format_ = VPI_IMAGE_FORMAT_Y16_ER_BL;
-      stereo_width_ = 1920;
-      stereo_height_ = 1080;
-      conv_params_.scale = 256;
+      stereo_width_ = kTegraSupportedStereoWidth;
+      stereo_height_ = kTegraSupportedStereoHeight;
+    } else {
+      stereo_format_ = VPI_IMAGE_FORMAT_Y16_ER;
+      stereo_width_ = width;
+      stereo_height_ = height;
+    }
+
+    // Recreate temporaries for changing format from input to stereo format
+    vpiImageDestroy(left_formatted_);
+    vpiImageDestroy(right_formatted_);
+    CHECK_STATUS(vpiImageCreate(width, height, VPI_IMAGE_FORMAT_Y16_ER, 0, &left_formatted_));
+    CHECK_STATUS(vpiImageCreate(width, height, VPI_IMAGE_FORMAT_Y16_ER, 0, &right_formatted_));
+
+    if (vpi_backends_ == VPI_BACKEND_TEGRA) {
+      // Recreate left and right Tegra-specific resized VPI images
+      vpiImageDestroy(left_stereo_);
+      vpiImageDestroy(right_stereo_);
+      CHECK_STATUS(
+        vpiImageCreate(stereo_width_, stereo_height_, stereo_format_, 0, &left_stereo_));
+      CHECK_STATUS(
+        vpiImageCreate(stereo_width_, stereo_height_, stereo_format_, 0, &right_stereo_));
+
+      // Recreate disparity VPI image with original input dimensions
+      vpiImageDestroy(disparity_resized_);
+      CHECK_STATUS(vpiImageCreate(width, height, VPI_IMAGE_FORMAT_U16, 0, &disparity_resized_));
+
+      // Recreate confidence map, which is used only on Tegra backend
+      vpiImageDestroy(confidence_map_);
       CHECK_STATUS(
         vpiImageCreate(
           stereo_width_, stereo_height_, VPI_IMAGE_FORMAT_U16, 0,
           &confidence_map_));
-      CHECK_STATUS(vpiImageCreate(inputWidth, inputHeight, VPI_IMAGE_FORMAT_Y16_ER, 0, &tmp_left_));
-      CHECK_STATUS(
-        vpiImageCreate(
-          inputWidth, inputHeight, VPI_IMAGE_FORMAT_Y16_ER, 0,
-          &tmp_right_));
     } else {
-      stereo_format_ = VPI_IMAGE_FORMAT_Y16_ER;
-      stereo_width_ = inputWidth;
-      stereo_height_ = inputHeight;
+      left_stereo_ = nullptr;
+      right_stereo_ = nullptr;
       confidence_map_ = nullptr;
     }
-    prev_height_ = inputHeight;
-    prev_width_ = inputWidth;
+
+    // Recreate stereo payload with parameters for stereo disparity algorithm
+    vpiPayloadDestroy(stereo_payload_);
     CHECK_STATUS(
       vpiCreateStereoDisparityEstimator(
-        backends_, stereo_width_, stereo_height_,
-        stereo_format_, &params_, &stereo_payload_));
+        vpi_backends_, stereo_width_, stereo_height_,
+        stereo_format_, &disparity_params_, &stereo_payload_));
+
+    // Recreate raw disparity VPI image
+    vpiImageDestroy(disparity_raw_);
     CHECK_STATUS(
       vpiImageCreate(
-        stereo_width_, stereo_height_, VPI_IMAGE_FORMAT_U16,
-        0, &vpi_disparity_));
-    CHECK_STATUS(vpiImageCreate(stereo_width_, stereo_height_, stereo_format_, 0, &stereo_left_));
-    CHECK_STATUS(vpiImageCreate(stereo_width_, stereo_height_, stereo_format_, 0, &stereo_right_));
-  }
+        stereo_width_, stereo_height_,
+        VPI_IMAGE_FORMAT_U16, 0, &disparity_raw_));
 
-  if (backends_ == VPI_BACKEND_TEGRA) {
-    CHECK_STATUS(
-      vpiSubmitConvertImageFormat(
-        vpi_stream_, VPI_BACKEND_CUDA,
-        vpi_left_, tmp_left_, &conv_params_));
-    CHECK_STATUS(
-      vpiSubmitConvertImageFormat(
-        vpi_stream_, VPI_BACKEND_CUDA,
-        vpi_right_, tmp_right_, &conv_params_));
-    CHECK_STATUS(
-      vpiSubmitRescale(
-        vpi_stream_, VPI_BACKEND_VIC, tmp_left_, stereo_left_,
-        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0));
-    CHECK_STATUS(
-      vpiSubmitRescale(
-        vpi_stream_, VPI_BACKEND_VIC, tmp_right_, stereo_right_,
-        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0));
-  } else {
-    CHECK_STATUS(
-      vpiSubmitConvertImageFormat(
-        vpi_stream_, VPI_BACKEND_CUDA,
-        vpi_left_, stereo_left_, &conv_params_));
-    CHECK_STATUS(
-      vpiSubmitConvertImageFormat(
-        vpi_stream_, VPI_BACKEND_CUDA,
-        vpi_right_, stereo_right_, &conv_params_));
-  }
-  CHECK_STATUS(
-    vpiSubmitStereoDisparityEstimator(
-      vpi_stream_, backends_,
-      stereo_payload_, stereo_left_, stereo_right_,
-      vpi_disparity_, confidence_map_, nullptr));
-
-  cv::Mat cvOut;
-  if (!temp_scale_) {
+    // Recreate final output disparity VPI image
+    vpiImageDestroy(disparity_);
     CHECK_STATUS(
       vpiImageCreate(
-        stereo_width_, stereo_height_, VPI_IMAGE_FORMAT_U16, 0,
-        &temp_scale_));
+        width, height,
+        VPI_IMAGE_FORMAT_F32, 0, &disparity_));
+
+    // Update cached dimensions
+    prev_height_ = height;
+    prev_width_ = width;
   }
+
+  // Convert input-format images to stereo-format images
   CHECK_STATUS(
     vpiSubmitConvertImageFormat(
       vpi_stream_, VPI_BACKEND_CUDA,
-      vpi_disparity_, temp_scale_, &scale_params_));
-  VPIImageData data;
+      left_input_, left_formatted_, &stereo_input_scale_params_));
+  CHECK_STATUS(
+    vpiSubmitConvertImageFormat(
+      vpi_stream_, VPI_BACKEND_CUDA,
+      right_input_, right_formatted_, &stereo_input_scale_params_));
 
+  if (vpi_backends_ == VPI_BACKEND_TEGRA) {
+    // Submit resize operation from input dimensions to Tegra-specific stereo dimensions
+    CHECK_STATUS(
+      vpiSubmitRescale(
+        vpi_stream_, VPI_BACKEND_VIC, left_formatted_, left_stereo_,
+        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0));
+    CHECK_STATUS(
+      vpiSubmitRescale(
+        vpi_stream_, VPI_BACKEND_VIC, right_formatted_, right_stereo_,
+        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0));
+  } else {
+    // Since stereo dimensions match input dimensions on non-Tegra backend, no resize necessary
+    left_stereo_ = left_formatted_;
+    right_stereo_ = right_formatted_;
+  }
+
+  // Calculate raw disparity and confidence map
+  CHECK_STATUS(
+    vpiSubmitStereoDisparityEstimator(
+      vpi_stream_, vpi_backends_,
+      stereo_payload_, left_stereo_, right_stereo_,
+      disparity_raw_, confidence_map_, nullptr));
+
+  if (vpi_backends_ == VPI_BACKEND_TEGRA) {
+    // Submit resize operation from Tegra-specific stereo dimensions back to input dimensions
+    CHECK_STATUS(
+      vpiSubmitRescale(
+        vpi_stream_, VPI_BACKEND_CUDA, disparity_raw_, disparity_resized_,
+        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0));
+  } else {
+    // Since stereo dimensions match input dimensions on non-Tegra backend, no resize necessary
+    disparity_resized_ = disparity_raw_;
+  }
+
+  // Convert to ROS2 standard 32-bit float format
+  CHECK_STATUS(
+    vpiSubmitConvertImageFormat(
+      vpi_stream_, VPI_BACKEND_CUDA,
+      disparity_resized_, disparity_, &disparity_scale_params_));
+
+  // Wait for operations to complete
   CHECK_STATUS(vpiStreamSync(vpi_stream_));
-  CHECK_STATUS(vpiImageLock(temp_scale_, VPI_LOCK_READ, &data));
 
+  // Lock output disparity VPI image to extract data
+  VPIImageData data;
+  CHECK_STATUS(vpiImageLock(disparity_, VPI_LOCK_READ, &data));
   try {
+    cv::Mat cvOut;
     CHECK_STATUS(vpiImageDataExportOpenCVMat(data, &cvOut));
 
     stereo_msgs::msg::DisparityImage disparity_image;
-    disparity_image.header = sub_left_info_->header;
+    disparity_image.header = left_info_msg->header;
     disparity_image.image =
-      *cv_bridge::CvImage(sub_left_info_->header, "mono16", cvOut).toImageMsg();
-    disparity_image.f = sub_right_info_->p[0];
-    disparity_image.t = sub_right_info_->p[3];
+      *cv_bridge::CvImage(left_info_msg->header, "32FC1", cvOut).toImageMsg();
+    disparity_image.f = right_info_msg->p[0];   // Focal length in pixels
+    disparity_image.t = -right_info_msg->p[3] / right_info_msg->p[0];   // Baseline in world units
     disparity_image.min_disparity = 0;
-    disparity_image.max_disparity = params_.maxDisparity;
-    pub_disparity_->publish(disparity_image);
+    disparity_image.max_disparity = disparity_params_.maxDisparity;
+    pub_->publish(disparity_image);
   } catch (...) {
-    vpiImageUnlock(temp_scale_);
+    // If any exception occurs, we must release the VPI image lock
+    vpiImageUnlock(disparity_);
     RCLCPP_ERROR(this->get_logger(), "Exception occurred with locked image");
   }
-  vpiImageUnlock(temp_scale_);
+  CHECK_STATUS(vpiImageUnlock(disparity_));
 }
 
 }  // namespace stereo_image_proc

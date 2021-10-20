@@ -72,7 +72,8 @@ class IsaacROSResizeInvalidTest(IsaacROSBaseTest):
         resized_image_sub, rosout_sub = self.create_logging_subscribers(
             subscription_requests=[(self.namespaces['resized/image'], Image), ('/rosout', Log)],
             use_namespace_lookup=False,
-            received_messages=received_messages
+            received_messages=received_messages,
+            accept_multiple_messages=True
         )
 
         image_pub = self.node.create_publisher(
@@ -86,35 +87,33 @@ class IsaacROSResizeInvalidTest(IsaacROSBaseTest):
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
 
-            # Publish test case over both topics
-            image_pub.publish(image)
-            camera_info_pub.publish(camera_info)
-
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 2
             end_time = time.time() + TIMEOUT
 
-            done = False
             while time.time() < end_time:
-                rclpy.spin_once(self.node, timeout_sec=TIMEOUT)
+                # Synchronize timestamps on both messages
+                timestamp = self.node.get_clock().now().to_msg()
+                image.header.stamp = timestamp
+                camera_info.header.stamp = timestamp
 
-                # If we have received a message on the output topic, break
-                if '/rosout' in received_messages:
-                    done = True
-                    break
+                # Publish test case over both topics
+                image_pub.publish(image)
+                camera_info_pub.publish(camera_info)
 
-            self.assertTrue(done, "Didn't receive output on /rosout topic!")
+                rclpy.spin_once(self.node, timeout_sec=0.1)
 
-            rosout = received_messages['/rosout']
+            self.assertIn('/rosout', received_messages, "Didn't receive output on /rosout topic!")
 
-            # Make sure that the output log message size is a non-empty error
-            self.assertEqual(LoggingSeverity(rosout.level), LoggingSeverity.ERROR,
-                             'Output did not have Error severity!')
-            self.assertGreater(len(rosout.msg), 0, 'Output had empty message!')
+            # Make sure that at least one output log message is a non-empty error
+            self.assertTrue(any([
+                LoggingSeverity(rosout.level) == LoggingSeverity.ERROR and len(rosout.msg) > 0
+                for rosout in received_messages['/rosout']]),
+                'No message with non-empty message and Error severity!')
 
             # Make sure no output image was received in the error case
-            self.assertNotIn(
-                self.namespaces['resized/image'], received_messages,
+            self.assertEqual(
+                len(received_messages[self.namespaces['resized/image']]), 0,
                 'Resized image was received despite error!')
 
         finally:

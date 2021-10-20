@@ -10,32 +10,24 @@
 #ifndef ISAAC_ROS_STEREO_IMAGE_PROC__POINT_CLOUD_NODE_HPP_
 #define ISAAC_ROS_STEREO_IMAGE_PROC__POINT_CLOUD_NODE_HPP_
 
-#include "nvPointCloud.h"
 #include "point_cloud_node_cuda.hpp"
-
-#include <image_transport/subscriber_filter.hpp>
-#include <image_transport/image_transport.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <rcutils/logging_macros.h>
-#include <sensor_msgs/image_encodings.hpp>
-#include <sensor_msgs/msg/image.hpp>
-#include <stereo_msgs/msg/disparity_image.hpp>
-
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
-
-#include <image_geometry/pinhole_camera_model.h>
-#include <image_geometry/stereo_camera_model.h>
-#include <message_filters/subscriber.h>
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/exact_time.h>
-
-#include <cuda.h>
-#include <cuda_runtime.h>
 
 #include <limits>
 #include <memory>
 #include <string>
+
+#include "cuda.h"  // NOLINT - include .h without directory
+#include "cuda_runtime.h"  // NOLINT - include .h without directory
+#include "image_geometry/stereo_camera_model.h"
+#include "message_filters/subscriber.h"
+#include "message_filters/synchronizer.h"
+#include "message_filters/sync_policies/exact_time.h"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/image_encodings.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/point_cloud2_iterator.hpp"
+#include "stereo_msgs/msg/disparity_image.hpp"
 
 namespace isaac_ros
 {
@@ -49,43 +41,29 @@ namespace stereo_image_proc
 class PointCloudNode : public rclcpp::Node
 {
 public:
-  /**
-  * @brief Construct a new Point Cloud Node object
-  */
   explicit PointCloudNode(const rclcpp::NodeOptions & options);
 
-  /**
-   * @brief Destroy the Point Cloud Node object
-   */
-  ~PointCloudNode();
-
 private:
-  /**
-   * @brief Function that assigns ROS parameters to member variables
-   *
-   * The following parameters are available:
-   * @param queue_size Determines the queue size of the subscriber
-   * @param unit_scaling Determines the amount to scale the point cloud xyz points by
-   * @param use_color Determines whether the output point cloud should have color or not
-   */
-  void initializeParameters();
+  // Queue size of the subscriber
+  int queue_size_;
 
-  /**
-   * @brief Function that sets up the message sync policy and subscribes the node to the relevant subscribers
-   *
-   */
-  void setupSubscribers();
+  // Boolean to decide whether to use color or not
+  bool use_color_;
 
-  /**
-   * @brief Function that sets up the topic that the node will publish to
-   *
-   */
-  void setupPublishers();
+  // Left rectified image subscriber
+  message_filters::Subscriber<sensor_msgs::msg::Image> sub_left_image_;
 
-  message_filters::Subscriber<sensor_msgs::msg::Image> sub_left_image_;  // Left rectified image
-  message_filters::Subscriber<sensor_msgs::msg::CameraInfo> sub_left_info_;  // Left camera info
-  message_filters::Subscriber<sensor_msgs::msg::CameraInfo> sub_right_info_;  // Right camera info
-  message_filters::Subscriber<stereo_msgs::msg::DisparityImage> sub_disparity_;  // Disparity image
+  // Left camera info subscriber
+  message_filters::Subscriber<sensor_msgs::msg::CameraInfo> sub_left_info_;
+
+  // Right camera info subscriber
+  message_filters::Subscriber<sensor_msgs::msg::CameraInfo> sub_right_info_;
+
+  // Disparity image subscriber
+  message_filters::Subscriber<stereo_msgs::msg::DisparityImage> sub_disparity_;
+
+  // PointCloud2 publisher
+  std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> pub_;
 
   using ExactPolicy = message_filters::sync_policies::ExactTime<
     sensor_msgs::msg::Image,
@@ -94,22 +72,26 @@ private:
     stereo_msgs::msg::DisparityImage>;
   using ExactSync = message_filters::Synchronizer<ExactPolicy>;
 
-  std::shared_ptr<ExactSync> exact_sync_;  // Exact message sync policy
+  // Exact message sync policy
+  std::shared_ptr<ExactSync> exact_sync_;
 
-  std::shared_ptr<
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> pub_points2_;  // PointCloud2 publisher
+  // Stereo camera model for getting reprojection matrix
+  image_geometry::StereoCameraModel stereo_camera_model_;
+
+  // Performs the computation of the point cloud
+  PointCloudNodeCUDA cloud_compute_;
 
   /**
-   * @brief Callback function for the left image, left camera info,
-   *        right camera info and disparity image subscriber.
-   *        This method will also publish the point cloud to the relevant topic
+   * @brief Callback to calculate and publish point cloud to
+   *        the relevant topic using left image, left camera info,
+   *        right camera info and disparity image.
    *
    * @param left_image_msg The left rectified image received
    * @param left_info_msg  The left image info message received
    * @param right_info_msg  The right image info message received
    * @param disp_msg The disparity image message received
    */
-  void image_cb(
+  void PointCloudCallback(
     const sensor_msgs::msg::Image::ConstSharedPtr & left_image_msg,
     const sensor_msgs::msg::CameraInfo::ConstSharedPtr & left_info_msg,
     const sensor_msgs::msg::CameraInfo::ConstSharedPtr & right_info_msg,
@@ -117,134 +99,74 @@ private:
 
   /**
    * @brief Initializes an empty PointCloud2 message using information from
-   *        the disparity image and use_color parameters
-   *
-   * @warning Method does not fill the PointCloud2 message with points
+   *        the disparity image and use_color ROS parameter. This method
+   *        does not fill the PointCloud2 message with points
    *
    * @param cloud_msg The input PointCloud2 message that will be modified
-   * @param disp_msg The disparity image message that determines the PointCloud2 size
+   * @param disp_msg The disparity image message whose data will be read
    */
-  void formatPointCloudMessage(
+  void FormatPointCloudMessage(
     sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg,
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg);
 
   /**
-   * @brief Updates RGB, Disparity and PointCloud2 data buffer sizes for use in GPU
+   * @brief Creates a point cloud properties struct using information from the cloud message
    *
-   * @note If the buffers are not initialized, this method will call initializeCuda
-   *
-   * @param cloud_msg The PointCloud2 message that determines the PointCloud2 data buffer size
-   * @param left_image_msg The left rectified image that determines the RGB image buffer size
-   * @param disp_msg The disparity image that determines the disparity image buffer size
+   * @param cloud_msg The PointCloud2 message whose data will be read
    */
-  void updateCudaBuffers(
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg,
-    const sensor_msgs::msg::Image::ConstSharedPtr & left_image_msg,
+  PointCloudProperties CreatePointCloudProperties(
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg);
+
+/**
+ * @brief Creates a disparity properties struct using information from the disparity message
+ *
+ * @param disp_msg The disparity image message whose data will be read
+ */
+  DisparityProperties CreateDisparityProperties(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg);
 
   /**
-   * @brief Initializes the PointCloud2, RGB and disparity data buffers,
-   *        and the intrinsics and cloud properties structs for use in GPU.
-   *        This function also initializes the CUDA streams
+   * @brief Creates a RGB properties struct using information from the RGB message
    *
-   * @param cloud_size The PointCloud2 data buffer size that will be allocated
-   * @param rgb_image_size The RGB image data buffer size that will be allocated
-   * @param disparity_image_size The disparity image data buffer size that will allocated
+   * @param rgb_msg The RGB image message whose data will be read
    */
-  void initializeCuda(int cloud_size, int rgb_image_size, int disparity_image_size);
+  RGBProperties CreateRGBProperties(
+    const sensor_msgs::msg::Image::ConstSharedPtr & rgb_msg);
 
   /**
-   * @brief Macro that calls the _checkCudaErrors function
+   * @brief Creates a camera properties struct using information from camera info messages
    *
-   * @param result The result from the CUDA function call
+   * @param stereo_camera_model The stereo camera model that will generate the reprojection matrix
+   * @param left_info_msg The left camera info message
+   * @param right_info_msg The right camera info message
    */
-  #define checkCudaErrors(result) {_checkCudaErrors((result), __FILE__, __LINE__); \
-}
-  /**
-   * @brief Checks if a CUDA error occurred. If so, reports the error and terminates the program
-   *
-   * @param result The result from a CUDA function call
-   * @param filename The file that called the CUDA function
-   * @param line_number The line number that the error occurred
-   */
-  void _checkCudaErrors(cudaError_t result, const char * filename, int line_number);
+  CameraIntrinsics CreateCameraIntrinsics(
+    image_geometry::StereoCameraModel & stereo_camera_model,
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr & left_info_msg,
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr & right_info_msg);
 
   /**
-   * @brief Updates the camera intrinsics struct variables
+   * @brief Selects the correct disparity format to interpret the disparity data as
+   *        and then calls PointCloudNodeCUDA object's compute function
+   *        to generate the point cloud
    *
-   * @param disp_msg The disparity image that updates the height,
-   *                 width and minimum disparity
+   * @param[out] cloud_msg The cloud message where the point cloud will be written to
+   * @param[in] cloud_properties A struct that contains information about the point cloud message
+   * @param[in] disp_msg The disparity message whose data buffer will be read
+   * @param[in] disparity_properties A struct that contains information about the disparity message
+   * @param[in] rgb_msg The RGB message whose data buffer will be read
+   * @param[in] rgb_properties A struct that contains information about the RGB message
+   * @param[in] intrinsics A struct that contains the reprojection matrix
    */
-  void updateIntrinsics(
-    const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg);
-
-  /**
-   * @brief Updates the cloud properties struct variables
-   *
-   * @param cloud_msg The PointCloud2 message to extract the cloud properties from
-   */
-  void updateCloudProperties(
-    const sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg);
-
-  /**
-   * @brief Converts a disparity image into 3D points
-   *        and writes them into a PointCloud2 data buffer
-   *
-   * @note This method internally copies the disparity image into GPU memory
-   * @note Only MONO8, 8UC1, MONO16, 16UC1 and 32FC1 disparity image encodings are supported
-   * @note The parameter T is used to decode the disparity image's buffer
-   *
-   * @param T Template type that represents the type of the disparity image's pixels
-   * @param cloud_buffer Empty float array that represents the PointCloud2's data buffer
-   * @param disp_msg The disparity image message that will be used to generate 3D points
-   */
-  template<typename T>
-  void convertDisparityToPointCloud(
-    float * cloud_buffer,
-    const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg);
-
-  /**
-   * @brief Writes RGB from the left rectified image into the PointCloud2 data buffer
-   *
-   * @note This method internally copies the RGB image into GPU memory
-   * @note Only RGB8, BGR8 and MONO8 are supported
-   *
-   * @param cloud_buffer Float array that represents the Pointcloud2's data buffer
-   * @param rgb_image_msg The image that will be used to extract RGB values
-   */
-  void addColorToPointCloud(
-    float * cloud_buffer,
-    const sensor_msgs::msg::Image::ConstSharedPtr & rgb_image_msg);
-
-  /**
-   * @brief Copies the GPU PointCloud data buffer into a PointCloud2 message
-   *
-   * @param cloud_msg The input PointCloud2 message with a data buffer
-   *                  that will be overwritten
-   */
-  void copyPointCloudBufferToMessage(
-    sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg);
-
-  nvPointCloudIntrinsics * intrinsics_ = nullptr;  // Relevant camera info struct
-  nvPointCloudProperties * cloud_properties_ = nullptr;  // Relevant cloud properties struct
-
-  uint8_t * disparity_image_buffer_ = nullptr;  // GPU disparity image data buffer
-  int disparity_image_buffer_size_ = 0;  // GPU disparity image data buffer size
-  cudaStream_t stream_;  // CUDA stream
-
-  uint8_t * rgb_image_buffer_ = nullptr;  // GPU RGB image data buffer
-  int rgb_image_buffer_size_ = 0;  // GPU RGB image data buffer size
-
-  uint8_t * pointcloud_data_buffer_ = nullptr;  // GPU point cloud data buffer
-  int pointcloud_data_buffer_size_ = 0;  // GPU point cloud data buffer size
-
-  image_geometry::StereoCameraModel model_;  // Stereo image geometry
-  bool cuda_initialized_ = false;  // Boolean to check if CUDA memory has been initialized
-  float unit_scaling_;  // Parameter to scale the x, y and z output of the node
-  int queue_size_;  // Queue size of the subscriber
-  bool use_color_;  // Boolean to decide whether to use color or not
+  void SelectDisparityFormatAndCompute(
+    sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg,
+    const PointCloudProperties & cloud_properties,
+    const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg,
+    const DisparityProperties & disparity_properties,
+    const sensor_msgs::msg::Image::ConstSharedPtr & rgb_msg,
+    const RGBProperties & rgb_properties,
+    const CameraIntrinsics & intrinsics);
 };
-
 }  // namespace stereo_image_proc
 }  // namespace isaac_ros
 #endif  // ISAAC_ROS_STEREO_IMAGE_PROC__POINT_CLOUD_NODE_HPP_

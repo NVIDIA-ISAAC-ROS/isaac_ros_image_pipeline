@@ -30,11 +30,9 @@ def generate_test_description():
         package='isaac_ros_stereo_image_proc',
         plugin='isaac_ros::stereo_image_proc::DisparityNode',
         namespace=IsaacROSDisparityTest.generate_namespace(),
-        parameters=[{
-                'backends': 'CUDA',
-                'window_size': 5,
-                'max_disparity': 64,
-        }])
+        parameters=[{'backends': 'CUDA'}],
+        remappings=[('disparity', 'disparity')]
+    )
 
     container = ComposableNodeContainer(
         name='disparity_container',

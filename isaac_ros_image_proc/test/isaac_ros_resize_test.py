@@ -83,17 +83,22 @@ class IsaacROSResizeTest(IsaacROSBaseTest):
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
 
-            # Publish test case over both topics
-            image_pub.publish(image)
-            camera_info_pub.publish(camera_info)
-
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 2
             end_time = time.time() + TIMEOUT
 
             done = False
             while time.time() < end_time:
-                rclpy.spin_once(self.node, timeout_sec=TIMEOUT)
+                # Synchronize timestamps on both messages
+                timestamp = self.node.get_clock().now().to_msg()
+                image.header.stamp = timestamp
+                camera_info.header.stamp = timestamp
+
+                # Publish test case over both topics
+                image_pub.publish(image)
+                camera_info_pub.publish(camera_info)
+
+                rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 # If we have received a message on the output topic, break
                 if 'resized/image' in received_messages:

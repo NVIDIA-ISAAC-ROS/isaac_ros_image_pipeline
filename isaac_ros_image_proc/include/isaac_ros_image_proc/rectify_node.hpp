@@ -59,6 +59,7 @@ private:
    */
   void RectifyImage(
     cv_bridge::CvImagePtr & image_ptr, const cv::Matx33d & K_mat, const cv::Matx34d & P_mat,
+    const cv::Matx33d & R_mat,
     const cv::Mat_<double> & D_mat, const std::string & distortion_model, cv::Rect roi);
 
   // ROS2 Camera subscriber for input and Image publisher for output

@@ -6,16 +6,10 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-# Note: disabled by default
-# Due to external dependencies
-# (stereo image proc & sensor_msgs_py)
-
 import os
 import pathlib
 import time
 
-import cv2
-from cv_bridge import CvBridge
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
 
 from launch_ros.actions import ComposableNodeContainer, Node
@@ -25,10 +19,8 @@ import numpy as np
 import pytest
 import rclpy
 
-from sensor_msgs.msg import CameraInfo, Image
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import CameraInfo, Image, PointCloud2
 from sensor_msgs_py import point_cloud2
-from stereo_msgs.msg import DisparityImage
 
 USE_COLOR = True
 AVOID_PADDING = False
@@ -36,49 +28,69 @@ AVOID_PADDING = False
 
 @pytest.mark.rostest
 def generate_test_description():
-    pointcloud_node = ComposableNode(
-        name='point_cloud',
+
+    disparity_node = ComposableNode(
+        name='disparity_node',
+        package='isaac_ros_stereo_image_proc',
+        plugin='isaac_ros::stereo_image_proc::DisparityNode',
+        namespace=IsaacROSStereoPipelineComparisonTest.generate_namespace(),
+        parameters=[{
+                'backends': 'CUDA',
+                'max_disparity': 64,
+                'scale': 1/32
+        }],
+        remappings=[('disparity', 'isaac_ros/disparity')]
+    )
+
+    point_cloud_node = ComposableNode(
+        name='point_cloud_node',
         package='isaac_ros_stereo_image_proc',
         plugin='isaac_ros::stereo_image_proc::PointCloudNode',
-        namespace=IsaacROSPointCloudComparisonTest.generate_namespace(),
-        parameters=[{
-            'use_color': USE_COLOR,
-        }],
-        remappings=[
-            ('points2', 'isaac_ros/points2'),
-        ])
+        namespace=IsaacROSStereoPipelineComparisonTest.generate_namespace(),
+        parameters=[{'use_color': USE_COLOR, }],
+        remappings=[('disparity', 'isaac_ros/disparity'),
+                    ('points2', 'isaac_ros/points2'),
+                    ('left/image_rect_color', 'left/image_rect')])
 
     container = ComposableNodeContainer(
         name='point_cloud_container',
         namespace='',
         package='rclcpp_components',
         executable='component_container',
-        composable_node_descriptions=[pointcloud_node],
-        output='screen',
+        composable_node_descriptions=[disparity_node, point_cloud_node],
+        output='screen'
     )
 
-    # Reference Node
+    # Reference nodes
+    reference_disparity_node = Node(
+        package='stereo_image_proc',
+        executable='disparity_node',
+        name='reference_disparity_node',
+        namespace=IsaacROSStereoPipelineComparisonTest.generate_namespace(),
+        output='screen',
+        remappings=[('disparity', 'reference/disparity')]
+    )
+
     reference_point_cloud_node = Node(
         package='stereo_image_proc',
         executable='point_cloud_node',
-        name='point_cloud_node_proc',
-        namespace=IsaacROSPointCloudComparisonTest.generate_namespace(),
+        name='reference_point_cloud_node',
+        namespace=IsaacROSStereoPipelineComparisonTest.generate_namespace(),
         output='screen',
         parameters=[{
             'use_color': USE_COLOR,
             'use_system_default_qos': True,
             'avoid_point_cloud_padding': AVOID_PADDING
         }],
-        remappings=[
-            ('points2', 'reference/points2'),
-        ]
-    )
+        remappings=[('disparity', 'reference/disparity'),
+                    ('points2', 'reference/points2'),
+                    ('left/image_rect_color', 'left/image_rect')])
 
-    return IsaacROSPointCloudComparisonTest.generate_test_description([
-        container, reference_point_cloud_node])
+    return IsaacROSStereoPipelineComparisonTest.generate_test_description([
+        container, reference_disparity_node, reference_point_cloud_node])
 
 
-class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
+class IsaacROSStereoPipelineComparisonTest(IsaacROSBaseTest):
     filepath = pathlib.Path(os.path.dirname(__file__))
 
     @IsaacROSBaseTest.for_each_test_case()
@@ -86,63 +98,56 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
         TIMEOUT = 20
         received_messages = {}
 
-        self.generate_namespace_lookup(['left/image_rect_color', 'disparity',
+        self.generate_namespace_lookup(['left/image_rect', 'right/image_rect',
                                         'left/camera_info', 'right/camera_info',
                                         'isaac_ros/points2', 'reference/points2'])
-        isaac_ros_sub, ref_sub = \
-            self.create_logging_subscribers([
-                ('isaac_ros/points2', PointCloud2),
-                ('reference/points2', PointCloud2),
-            ], received_messages,
-                accept_multiple_messages=True)
-
+        isaac_ros_sub, ref_sub = self.create_logging_subscribers(
+            [('isaac_ros/points2', PointCloud2),
+             ('reference/points2', PointCloud2)],
+            received_messages, accept_multiple_messages=True
+        )
         image_left_pub = self.node.create_publisher(
-            Image, self.namespaces['left/image_rect_color'], self.DEFAULT_QOS
+            Image, self.namespaces['left/image_rect'], self.DEFAULT_QOS
         )
-        disparity_pub = self.node.create_publisher(
-            DisparityImage, self.namespaces['disparity'], self.DEFAULT_QOS
-        )
-        camera_info_left = self.node.create_publisher(
-            CameraInfo, self.namespaces['left/camera_info'], self.DEFAULT_QOS
+        image_right_pub = self.node.create_publisher(
+            Image, self.namespaces['right/image_rect'], self.DEFAULT_QOS
         )
         camera_info_right = self.node.create_publisher(
             CameraInfo, self.namespaces['right/camera_info'], self.DEFAULT_QOS
         )
+        camera_info_left = self.node.create_publisher(
+            CameraInfo, self.namespaces['left/camera_info'], self.DEFAULT_QOS
+        )
 
         try:
-            image_left = JSONConversion.load_image_from_json(
-                test_folder / 'image_left.json')
-
-            disparity_image = DisparityImage()
-            disp_img = cv2.imread(os.path.join(
-                self.filepath, 'test_cases', 'stereo_images_chair', 'test_disparity.png'),
-                cv2.IMREAD_UNCHANGED).astype(np.float32)
-            disparity_image.image = CvBridge().cv2_to_imgmsg(disp_img, '32FC1')
-            disparity_image.min_disparity = np.min(disp_img).astype(np.float)
-
+            image_left = JSONConversion.load_image_from_json(test_folder / 'image_left.json')
+            image_right = JSONConversion.load_image_from_json(test_folder / 'image_right.json')
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
+
+            image_left.header.frame_id = 'world'
+            image_right.header = image_left.header
+            camera_info.header = image_left.header
 
             end_time = time.time() + TIMEOUT
             done = False
 
             while time.time() < end_time:
                 image_left_pub.publish(image_left)
-                disparity_pub.publish(disparity_image)
+                image_right_pub.publish(image_right)
                 camera_info_left.publish(camera_info)
                 camera_info_right.publish(camera_info)
 
                 rclpy.spin_once(self.node, timeout_sec=(0.1))
 
-                if all([
-                    len(messages) >= 1
-                    for messages in received_messages.values()
-                ]):
+                if all([len(messages) >= 1 for messages in received_messages.values()]):
                     done = True
                     break
+
             self.assertTrue(done)
 
             FIELD_NAMES = ['x', 'y', 'z'] + (['rgb'] if USE_COLOR else [])
+
             for isaac_ros_msg, ref_msg in zip(
                     received_messages['isaac_ros/points2'],
                     received_messages['reference/points2']
@@ -165,16 +170,17 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
                     xyz_error += np.sum(np.square(isaac_ros_pt[:3] - ref_pt[:3]))
 
                     if USE_COLOR:
-                        rgb_error += (isaac_ros_pt[3] - ref_pt[3])**2
+                        rgb_error += np.square(isaac_ros_pt[3] - ref_pt[3])
 
                     n += 1
+
                 self.assertGreater(n, 0)
                 # MSE error
                 xyz_error = xyz_error / n
                 self.node.get_logger().info(f'XYZ Error: {xyz_error}')
                 self.node.get_logger().info(f'RGB Error: {rgb_error}')
 
-                XYZ_ERROR_THRESHOLD = 1e-6  # Units in mm
+                XYZ_ERROR_THRESHOLD = 10  # Units in mm
                 self.assertLess(xyz_error, XYZ_ERROR_THRESHOLD)
 
                 # Point coloring is determined purely by input image, so should be exactly the same
@@ -183,6 +189,6 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
             self.node.destroy_subscription(isaac_ros_sub)
             self.node.destroy_subscription(ref_sub)
             self.node.destroy_publisher(image_left_pub)
-            self.node.destroy_publisher(disparity_pub)
+            self.node.destroy_publisher(image_right_pub)
             self.node.destroy_publisher(camera_info_right)
             self.node.destroy_publisher(camera_info_left)

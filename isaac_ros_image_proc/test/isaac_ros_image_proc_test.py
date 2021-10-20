@@ -60,19 +60,12 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
                 ('image_rect', Image),
                 ('image_color', Image),
                 ('image_rect_color', Image),
-            ], received_messages)
+            ], received_messages, accept_multiple_messages=True)
 
         try:
-            timestamp = self.node.get_clock().now().to_msg()
             image_raw = JSONConversion.load_image_from_json(test_folder / 'image_raw.json')
-            image_raw.header.stamp = timestamp
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
-            camera_info.header.stamp = timestamp
-
-            # Publish test case over both topics
-            image_raw_pub.publish(image_raw)
-            camera_info_pub.publish(camera_info)
 
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 2
@@ -81,10 +74,19 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
             done = False
             output_topics = ['image_mono', 'image_rect', 'image_color', 'image_rect_color']
             while time.time() < end_time:
-                rclpy.spin_once(self.node, timeout_sec=TIMEOUT)
+                # Synchronize timestamps on both messages
+                timestamp = self.node.get_clock().now().to_msg()
+                image_raw.header.stamp = timestamp
+                camera_info.header.stamp = timestamp
 
-                # If we have received exactly one message on each output topic, break
-                if all([topic in received_messages for topic in output_topics]):
+                # Publish test case over both topics
+                image_raw_pub.publish(image_raw)
+                camera_info_pub.publish(camera_info)
+
+                rclpy.spin_once(self.node, timeout_sec=0.1)
+
+                # If we have received at least one message on each output topic, break
+                if all([len(received_messages.get(topic, [])) > 0 for topic in output_topics]):
                     done = True
                     break
 
@@ -96,11 +98,11 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
                             + '\n'.join(received_messages.keys()))
 
             # Collect received images and compare to baseline
-            image_mono_actual = self.bridge.imgmsg_to_cv2(received_messages['image_mono'])
-            image_rect_actual = self.bridge.imgmsg_to_cv2(received_messages['image_rect'])
-            image_color_actual = self.bridge.imgmsg_to_cv2(received_messages['image_color'])
+            image_mono_actual = self.bridge.imgmsg_to_cv2(received_messages['image_mono'][0])
+            image_rect_actual = self.bridge.imgmsg_to_cv2(received_messages['image_rect'][0])
+            image_color_actual = self.bridge.imgmsg_to_cv2(received_messages['image_color'][0])
             image_rect_color_actual = self.bridge.imgmsg_to_cv2(
-                received_messages['image_rect_color'])
+                received_messages['image_rect_color'][0])
 
             image_mono_expected = cv2.imread(
                 str(test_folder / 'image_mono.jpg'), cv2.IMREAD_GRAYSCALE)

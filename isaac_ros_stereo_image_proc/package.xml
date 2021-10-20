@@ -32,6 +32,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
   <depend>message_filters</depend>
   <depend>rclcpp_components</depend>
   <depend>sensor_msgs</depend>
+  <depend>sensor_msgs_py</depend>
   <depend>stereo_msgs</depend>
   <depend>isaac_ros_common</depend>
 

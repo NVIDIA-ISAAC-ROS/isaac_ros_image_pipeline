@@ -17,7 +17,7 @@ import launch_ros
 import numpy as np
 import pytest
 import rclpy
-from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.msg import Image
 
 ENCODING_DESIRED = 'bgra8'
 BACKENDS = 'CUDA'
@@ -70,17 +70,8 @@ class IsaacROSFormatBGRATest(IsaacROSBaseTest):
             cv_image = np.zeros((300, 300, 4), np.uint8)
             cv_image[:] = (255, 0, 0, 200)  # Full red, partial opacity
 
-            timestamp = self.node.get_clock().now().to_msg()
             image_raw = CvBridge().cv2_to_imgmsg(cv_image)
-            image_raw.header.stamp = timestamp
             image_raw.encoding = 'rgba8'  # Set image encoding explicitly
-            camera_info = CameraInfo()
-            camera_info.header.stamp = timestamp
-            # Arbitrary valid K matrix that will satisfy calibration check
-            camera_info.k = np.eye(3).reshape(9)
-
-            # Publish test case over single topic
-            image_raw_pub.publish(image_raw)
 
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 2
@@ -88,7 +79,14 @@ class IsaacROSFormatBGRATest(IsaacROSBaseTest):
 
             done = False
             while time.time() < end_time:
-                rclpy.spin_once(self.node, timeout_sec=TIMEOUT)
+                # Update timestamp on message
+                timestamp = self.node.get_clock().now().to_msg()
+                image_raw.header.stamp = timestamp
+
+                # Publish test case over single topic
+                image_raw_pub.publish(image_raw)
+
+                rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 # If we have received a message on the output topic, break
                 if 'image' in received_messages:
