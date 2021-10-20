@@ -49,7 +49,7 @@ RectifyNode::RectifyNode(const rclcpp::NodeOptions & options)
   sub_{image_transport::create_camera_subscription(
       this, "image", std::bind(
         &RectifyNode::RectifyCallback,
-        this, std::placeholders::_1, std::placeholders::_2), "raw")},
+        this, std::placeholders::_1, std::placeholders::_2), "raw", rmw_qos_profile_sensor_data)},
   pub_{image_transport::create_publisher(this, "image_rect")},
   interpolation_{static_cast<VPIInterpolationType>(declare_parameter("interpolation",
     static_cast<int>(VPI_INTERP_CATMULL_ROM)))},
@@ -126,9 +126,10 @@ void RectifyNode::RectifyCallback(
   cv::Rect roi{static_cast<int>(roi_msg.x_offset), static_cast<int>(roi_msg.y_offset),
     static_cast<int>(roi_msg.width), static_cast<int>(roi_msg.height)};
 
-  // Convert K, P, D from arrays to cv::Mat (R is omitted)
+  // Convert K, P, D from arrays to cv::Mat
   cv::Matx33d K_mat{&info_msg->k[0]};
   cv::Matx34d P_mat{&info_msg->p[0]};
+  cv::Matx33d R_mat{&info_msg->r[0]};
   cv::Mat_<double> D_mat(info_msg->d);
 
   // Since the ROI is given in full-image coordinates, adjust offset before scaling
@@ -164,7 +165,7 @@ void RectifyNode::RectifyCallback(
   auto image_ptr = cv_bridge::toCvCopy(image_msg);
 
   // Use VPI to rectify image
-  RectifyImage(image_ptr, K_mat, P_mat, D_mat, info_msg->distortion_model, roi);
+  RectifyImage(image_ptr, K_mat, P_mat, R_mat, D_mat, info_msg->distortion_model, roi);
 
   // Allocate and publish new rectified image message
   pub_.publish(
@@ -175,6 +176,7 @@ void RectifyNode::RectifyCallback(
 
 void RectifyNode::RectifyImage(
   cv_bridge::CvImagePtr & image_ptr, const cv::Matx33d & K_mat, const cv::Matx34d & P_mat,
+  const cv::Matx33d & R_mat,
   const cv::Mat_<double> & D_mat,
   const std::string & distortion_model,
   cv::Rect roi)
@@ -197,12 +199,19 @@ void RectifyNode::RectifyImage(
     }
     if (P_mat != curr_P_mat_) {
       curr_P_mat_ = P_mat;
-      // Prepare camera extrinsics
-      for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 4; ++j) {
-          X_[i][j] = static_cast<float>(P_mat(i, j));
+      // Prepare camera extrinsics assuming monocular camera.
+      // Extrinsics matrix for VPI is filled by R matrix from camera info for rotation
+      // it should be Identity matrix
+      for (int i = 0; i < R_mat.rows; ++i) {
+        for (int j = 0; j < R_mat.cols; ++j) {
+          X_[i][j] = static_cast<float>(R_mat(i, j));
         }
       }
+      // Translation is zero for monocular camera
+      X_[0][3] = 0;
+      X_[1][3] = 0;
+      X_[2][3] = 0;
+
       update_map = true;
     }
     if (curr_D_mat_.empty() || cv::countNonZero(D_mat != curr_D_mat_) > 0) {
@@ -241,12 +250,12 @@ void RectifyNode::RectifyImage(
         VPIPolynomialLensDistortionModel polynomial{};
         polynomial.k1 = D_mat(0);
         polynomial.k2 = D_mat(1);
-        polynomial.k3 = D_mat(2);
-        polynomial.k4 = D_mat(3);
-        polynomial.k5 = D_mat(4);
-        polynomial.k6 = D_mat(5);
-        polynomial.p1 = D_mat(6);
-        polynomial.p2 = D_mat(7);
+        polynomial.p1 = D_mat(2);
+        polynomial.p2 = D_mat(3);
+        polynomial.k3 = D_mat(4);
+        polynomial.k4 = D_mat(5);
+        polynomial.k5 = D_mat(6);
+        polynomial.k6 = D_mat(7);
         CHECK_STATUS(
           vpiWarpMapGenerateFromPolynomialLensDistortionModel(K_, X_, K_, &polynomial, &map));
       } else {  // Unknown distortion model

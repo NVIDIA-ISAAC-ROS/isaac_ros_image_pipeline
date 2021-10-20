@@ -59,8 +59,6 @@ ament_auto_add_executable(${PROJECT_NAME}
   src/stereo_image_proc_main.cpp
 )
 
-file(GLOB SOURCES "src/*.cpp")
-
 install(TARGETS disparity_node point_cloud_node point_cloud_node_cuda
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -78,8 +76,10 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/isaac_ros_stereo_disparity_pol.py)
   add_launch_test(test/isaac_ros_stereo_pipeline_pol.py)
+  add_launch_test(test/isaac_ros_stereo_pipeline_output_compare.py)
   add_launch_test(test/isaac_ros_stereo_point_cloud_OSS_test.py)
   add_launch_test(test/isaac_ros_stereo_point_cloud_pol.py)
+  add_launch_test(test/isaac_ros_stereo_point_cloud_output_compare.py)
 endif()
 
 ament_auto_package(INSTALL_TO_SHARE launch)
