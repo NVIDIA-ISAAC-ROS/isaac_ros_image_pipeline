@@ -97,7 +97,7 @@ See also:
 2. Build and source the workspace:  
 `cd your_ws && colcon build --symlink-install && source install/setup.bash`
 3. Spin up the stereo image pipeline and Realsense camera node with the launchfile:  
-`ros2 launch isaac_ros_stereo_image_proc isaac_ros_stereo_image_pipeline_launch.py`
+`ros2 launch isaac_ros_stereo_image_proc isaac_ros_stereo_image_pipeline.launch.py`
 
 # ROS2 Package API
 ## `isaac_ros_image_proc`

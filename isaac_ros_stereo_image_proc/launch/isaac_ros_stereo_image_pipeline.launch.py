@@ -18,7 +18,6 @@ def generate_launch_description():
         plugin='isaac_ros::stereo_image_proc::DisparityNode',
         parameters=[{
                 'backends': 'CUDA',
-                'window_size': 5,
                 'max_disparity': 64,
         }])
 
