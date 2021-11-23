@@ -107,7 +107,7 @@ void DisparityNode::DisparityCallback(
   const cv::Mat right_input_cv = cv_bridge::toCvShare(right_image_msg, "mono8")->image;
 
   // Check current dimensions against previous dimensions to determine if cache is valid
-  const size_t height{left_info_msg->height}, width{left_info_msg->width};
+  const size_t height{left_image_msg->height}, width{left_image_msg->width};
   const bool cache_valid = (height == prev_height_) && (width == prev_width_);
 
   if (cache_valid) {
