@@ -27,7 +27,6 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
   <depend>rclcpp</depend>
   <depend>image_transport</depend>
   <depend>image_geometry</depend>
-  <depend>vpi</depend>
   <depend>cv_bridge</depend>
   <depend>message_filters</depend>
   <depend>rclcpp_components</depend>
