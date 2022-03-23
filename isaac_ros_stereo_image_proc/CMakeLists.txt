@@ -18,8 +18,17 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Default to Release build
+if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+endif()
+message( STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
+
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
+
+# Find VPI dependency
+find_package(vpi REQUIRED)
 
 set(CUDA_MIN_VERSION "10.2")
 find_package(CUDA ${CUDA_MIN_VERSION} REQUIRED)

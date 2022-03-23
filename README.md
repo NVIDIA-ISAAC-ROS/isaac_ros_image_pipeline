@@ -5,16 +5,20 @@
 ## Overview
 This metapackage offers similar functionality as the standard, CPU-based [`image_pipeline` metapackage](http://wiki.ros.org/image_pipeline), but does so by leveraging the Jetson platform's specialized computer vision hardware. Considerable effort has been made to ensure that replacing `image_pipeline` with `isaac_ros_image_pipeline` on a Jetson device is as painless a transition as possible.
 
+For solutions to known issues, please visit the [Troubleshooting](#troubleshooting) section below.
+
 ## System Requirements
 This Isaac ROS package is designed and tested to be compatible with ROS2 Foxy on Jetson hardware.
+
 ### Jetson
-- AGX Xavier or Xavier NX
-- JetPack 4.6
+- [Jetson AGX Xavier or Xavier NX](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/)
+- [JetPack 4.6.1](https://developer.nvidia.com/embedded/jetpack)
 
 ### x86_64
-- CUDA 10.2/11.2 supported discrete GPU
-- VPI 1.1.11
 - Ubuntu 20.04+
+- CUDA 11.4 supported discrete GPU
+- VPI 1.1.11
+
 
 **Note:** For best performance on Jetson, ensure that power settings are configured appropriately ([Power Management for Jetson](https://docs.nvidia.com/jetson/l4t/index.html#page/Tegra%20Linux%20Driver%20Package%20Development%20Guide/power_management_jetson_xavier.html#wwpID0EUHA)).
 
