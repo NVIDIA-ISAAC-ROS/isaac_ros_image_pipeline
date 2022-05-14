@@ -301,6 +301,10 @@ void RectifyNode::RectifyImage(
       CHECK_STATUS(vpiCreateRemap(vpi_backends_, &map, &remap_));
 
       vpiWarpMapFreeData(&map);
+
+      // Destroy the already prepared VPI images
+      vpiImageDestroy(tmp_in_);
+      vpiImageDestroy(tmp_out_);
       // Prepare temporary VPI images for conversion to NV12 format
       CHECK_STATUS(
         vpiImageCreate(
