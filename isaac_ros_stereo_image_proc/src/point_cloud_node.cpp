@@ -216,11 +216,21 @@ RGBProperties PointCloudNode::CreateRGBProperties(
     rgb_properties.green_offset = 1;
     rgb_properties.blue_offset = 2;
     rgb_properties.color_step = 3;
+  } else if (rgb_msg->encoding == sensor_msgs::image_encodings::RGBA8) {
+    rgb_properties.red_offset = 0;
+    rgb_properties.green_offset = 1;
+    rgb_properties.blue_offset = 2;
+    rgb_properties.color_step = 4;
   } else if (rgb_msg->encoding == sensor_msgs::image_encodings::BGR8) {
     rgb_properties.blue_offset = 0;
     rgb_properties.green_offset = 1;
     rgb_properties.red_offset = 2;
     rgb_properties.color_step = 3;
+  } else if (rgb_msg->encoding == sensor_msgs::image_encodings::BGRA8) {
+    rgb_properties.blue_offset = 0;
+    rgb_properties.green_offset = 1;
+    rgb_properties.red_offset = 2;
+    rgb_properties.color_step = 4;
   } else if (rgb_msg->encoding == sensor_msgs::image_encodings::MONO8) {
     rgb_properties.red_offset = 0;
     rgb_properties.green_offset = 0;
