@@ -240,6 +240,12 @@ RGBProperties PointCloudNode::CreateRGBProperties(
     throw InvalidImageFormatError(
             "Unsupported encoding " + rgb_msg->encoding + "! Not publishing color");
   }
+
+  if (rgb_msg->encoding == sensor_msgs::image_encodings::RGBA8 ||
+    rgb_msg->encoding == sensor_msgs::image_encodings::BGRA8) {
+      RCLCPP_WARN_ONCE(get_logger(), 
+        "Received encoding " + rgb_msg->encoding + " dropping alpha channel to compute color");
+  }
   return rgb_properties;
 }
 
