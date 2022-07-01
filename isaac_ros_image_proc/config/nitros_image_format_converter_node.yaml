@@ -1,0 +1,90 @@
+%YAML 1.2
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+---
+name: imageConverter
+components:
+- name: data_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: data_receiver
+    min_size: 1
+- name: data_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: data_transmitter
+    min_size: 1
+- name: pool
+  type: nvidia::gxf::BlockMemoryPool
+  parameters:
+    storage_type: 1
+    block_size: 14400000
+    num_blocks: 40
+- name: converter
+  type: nvidia::cvcore::tensor_ops::ConvertColorFormat
+  parameters:
+    output_type: "RGB_U8"
+    receiver: data_receiver
+    transmitter: data_transmitter
+    pool: pool
+    input_adapter: resource/adapter
+    output_adapter: resource/adapter
+    output_name: "image"
+---
+name: vault
+components:
+- name: signal
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: signal
+    min_size: 1
+- name: vault
+  type: nvidia::gxf::Vault
+  parameters:
+    source: signal
+    max_waiting_count: 1
+    drop_waiting: false
+---
+name: resource
+components:
+- name: adapter
+  type: nvidia::cvcore::tensor_ops::ImageAdapter
+  parameters:
+    message_type: "VideoBuffer"
+- name: stream
+  type: nvidia::cvcore::tensor_ops::TensorStream
+  parameters:
+    backend_type: "VPI"
+    engine_type: "GPU"
+---
+components:
+- type: nvidia::gxf::Connection
+  parameters:
+    source: imageConverter/data_transmitter
+    target: vault/signal
+---
+name: utils
+components:
+- name: clock
+  type: nvidia::gxf::RealtimeClock
+- type: nvidia::gxf::GreedyScheduler
+  parameters:
+    clock: clock
+    stop_on_deadlock: false

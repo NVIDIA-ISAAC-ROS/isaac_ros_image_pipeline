@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -31,7 +31,7 @@ int main(int argc, char * argv[])
     "-p", "encoding_desired:=mono8"
   });
   auto format_mono_node =
-    std::make_shared<isaac_ros::image_proc::ImageFormatConverterNode>(format_mono_options);
+    std::make_shared<nvidia::isaac_ros::image_proc::ImageFormatConverterNode>(format_mono_options);
   exec.add_node(format_mono_node);
 
   // Also make the raw images available in color from /image_raw to /image_color
@@ -40,24 +40,12 @@ int main(int argc, char * argv[])
   {
     "--ros-args",
     "-r", "__node:=image_format_color",
-    "-r", "image:=image_color"
+    "-r", "image:=image_color",
+    "-p", "encoding_desired:=rgb8"
   });
   auto format_color_node =
-    std::make_shared<isaac_ros::image_proc::ImageFormatConverterNode>(format_color_options);
+    std::make_shared<nvidia::isaac_ros::image_proc::ImageFormatConverterNode>(format_color_options);
   exec.add_node(format_color_node);
-
-  // Rectify and undistort grayscale images from /image_mono to /image_rect
-  rclcpp::NodeOptions rectify_mono_options;
-  rectify_mono_options.arguments(
-  {
-    "--ros-args",
-    "-r", "__node:=rectify_mono",
-    "-r", "image:=image_mono",
-    "-r", "image_rect:=image_rect"
-  });
-  auto rectify_mono_node = std::make_shared<isaac_ros::image_proc::RectifyNode>(
-    rectify_mono_options);
-  exec.add_node(rectify_mono_node);
 
   // Also rectify and undistort color images from /image_color to /image_rect_color
   rclcpp::NodeOptions rectify_color_options;
@@ -65,10 +53,13 @@ int main(int argc, char * argv[])
   {
     "--ros-args",
     "-r", "__node:=rectify_color",
-    "-r", "image:=image_color",
-    "-r", "image_rect:=image_rect_color"
+    "-r", "image_raw:=image_color",
+    "-r", "image_rect:=image_rect_color",
+    "-p", "encoding_desired:=rgb8",
+    "-p", "output_width:=640",
+    "-p", "output_height:=480"
   });
-  auto rectify_color_node = std::make_shared<isaac_ros::image_proc::RectifyNode>(
+  auto rectify_color_node = std::make_shared<nvidia::isaac_ros::image_proc::RectifyNode>(
     rectify_color_options);
   exec.add_node(rectify_color_node);
 

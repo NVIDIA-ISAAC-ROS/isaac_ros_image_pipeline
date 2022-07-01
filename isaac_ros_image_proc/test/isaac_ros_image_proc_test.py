@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -44,8 +44,8 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
         """Expect the node to forward images from input to all output topics."""
         self.generate_namespace_lookup([
             'image_raw', 'camera_info',
-            'image_mono', 'image_rect',
-            'image_color', 'image_rect_color'
+            'image_mono', 'image_color',
+            'image_rect_color'
         ])
 
         image_raw_pub = self.node.create_publisher(
@@ -54,10 +54,9 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
             CameraInfo, self.namespaces['camera_info'], self.DEFAULT_QOS)
 
         received_messages = {}
-        image_mono_sub, image_rect_sub, image_color_sub, image_rect_color_sub = \
+        image_mono_sub, image_color_sub, image_rect_color_sub = \
             self.create_logging_subscribers([
                 ('image_mono', Image),
-                ('image_rect', Image),
                 ('image_color', Image),
                 ('image_rect_color', Image),
             ], received_messages, accept_multiple_messages=True)
@@ -72,7 +71,7 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
             end_time = time.time() + TIMEOUT
 
             done = False
-            output_topics = ['image_mono', 'image_rect', 'image_color', 'image_rect_color']
+            output_topics = ['image_mono', 'image_color', 'image_rect_color']
             while time.time() < end_time:
                 # Synchronize timestamps on both messages
                 timestamp = self.node.get_clock().now().to_msg()
@@ -99,26 +98,21 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
 
             # Collect received images and compare to baseline
             image_mono_actual = self.bridge.imgmsg_to_cv2(received_messages['image_mono'][0])
-            image_rect_actual = self.bridge.imgmsg_to_cv2(received_messages['image_rect'][0])
             image_color_actual = self.bridge.imgmsg_to_cv2(received_messages['image_color'][0])
             image_rect_color_actual = self.bridge.imgmsg_to_cv2(
                 received_messages['image_rect_color'][0])
 
             image_mono_expected = cv2.imread(
                 str(test_folder / 'image_mono.jpg'), cv2.IMREAD_GRAYSCALE)
-            image_rect_expected = cv2.imread(
-                str(test_folder / 'image_rect.jpg'), cv2.IMREAD_GRAYSCALE)
             image_color_expected = cv2.imread(str(test_folder / 'image_color.jpg'))
             image_rect_color_expected = cv2.imread(str(test_folder / 'image_rect_color.jpg'))
 
             self.assertImagesEqual(image_mono_actual, image_mono_expected)
-            self.assertImagesEqual(image_rect_actual, image_rect_expected)
             self.assertImagesEqual(image_color_actual, image_color_expected)
             self.assertImagesEqual(image_rect_color_actual, image_rect_color_expected)
 
         finally:
             self.assertTrue(self.node.destroy_subscription(image_mono_sub))
-            self.assertTrue(self.node.destroy_subscription(image_rect_sub))
             self.assertTrue(self.node.destroy_subscription(image_color_sub))
             self.assertTrue(self.node.destroy_subscription(image_rect_color_sub))
             self.assertTrue(self.node.destroy_publisher(image_raw_pub))

@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,13 +12,14 @@ import os
 import pathlib
 import time
 
-import cv2
+# Need to load sklearn first on Jetson.
+from sklearn.linear_model import LinearRegression
+import cv2  # noqa: I100
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
 import launch_ros
 import pytest
 import rclpy
 from sensor_msgs.msg import CameraInfo, Image
-from sklearn.linear_model import LinearRegression
 
 
 @pytest.mark.rostest
@@ -27,10 +28,14 @@ def generate_test_description():
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
-            plugin='isaac_ros::image_proc::RectifyNode',
+            plugin='nvidia::isaac_ros::image_proc::RectifyNode',
             name='rectify_node',
             namespace=IsaacROSRectifyTest.generate_namespace(),
-            remappings=[('image', 'image_raw')]
+            remappings=[('image', 'image_raw')],
+            parameters=[{
+                'output_width': 1280,
+                'output_height': 800,
+            }]
         )]
 
     rectify_container = launch_ros.actions.ComposableNodeContainer(
@@ -39,7 +44,8 @@ def generate_test_description():
         package='rclcpp_components',
         executable='component_container',
         composable_node_descriptions=composable_nodes,
-        output='screen'
+        output='screen',
+        arguments=['--ros-args', '--log-level', 'info'],
     )
 
     return IsaacROSRectifyTest.generate_test_description([rectify_container])

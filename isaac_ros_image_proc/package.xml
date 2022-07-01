@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 
 NVIDIA CORPORATION and its licensors retain all intellectual property
 and proprietary rights in and to this software, related documentation
@@ -13,7 +13,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_image_proc</name>
-  <version>0.9.0</version>
+  <version>0.10.0</version>
   <description>Single image rectification and color processing</description>
 
   <maintainer email="hemals@nvidia.com">Hemal Shah</maintainer>
@@ -21,15 +21,14 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
   <url type="website">https://developer.nvidia.com/isaac-ros-gems/</url>
   <author>Jaiveer Singh</author>
   <author>Piero Orderique</author>
+  <author>Tao Zhang</author>
   <author>Tobi Alade</author>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
-  <depend>image_transport</depend>
-  <depend>cv_bridge</depend>
-  <depend>isaac_ros_common</depend>
+  <depend>isaac_ros_nitros</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

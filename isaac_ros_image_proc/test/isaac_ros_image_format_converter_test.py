@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -20,7 +20,6 @@ import rclpy
 from sensor_msgs.msg import Image
 
 ENCODING_DESIRED = 'bgr8'
-BACKENDS = 'CUDA'
 
 
 @pytest.mark.rostest
@@ -29,12 +28,11 @@ def generate_test_description():
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
-            plugin='isaac_ros::image_proc::ImageFormatConverterNode',
+            plugin='nvidia::isaac_ros::image_proc::ImageFormatConverterNode',
             name='image_format_node',
             namespace=IsaacROSFormatTest.generate_namespace(),
             parameters=[{
                     'encoding_desired': ENCODING_DESIRED,
-                    'backends': BACKENDS
             }])]
 
     format_container = launch_ros.actions.ComposableNodeContainer(

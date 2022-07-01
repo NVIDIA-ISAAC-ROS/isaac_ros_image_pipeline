@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+/**
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -10,282 +10,147 @@
 
 #include "isaac_ros_stereo_image_proc/point_cloud_node.hpp"
 
+#include <cstdio>
 #include <memory>
-#include <limits>
 #include <string>
-#include <unordered_map>
+#include <utility>
 
-#include "cuda.h"  // NOLINT - include .h without directory
-#include "cuda_runtime.h"  // NOLINT - include .h without directory
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_components/register_node_macro.hpp"
 
-namespace
+namespace nvidia
 {
-const std::unordered_map<std::string, unsigned int> disparity_byte_conversion(
-  {
-    {sensor_msgs::image_encodings::MONO8, sizeof(uint8_t)},
-    {sensor_msgs::image_encodings::TYPE_8UC1, sizeof(uint8_t)},
-    {sensor_msgs::image_encodings::MONO16, sizeof(uint16_t)},
-    {sensor_msgs::image_encodings::TYPE_16UC1, sizeof(uint16_t)},
-    {sensor_msgs::image_encodings::TYPE_32FC1, sizeof(float)}
-  });
-
-struct InvalidImageFormatError
-{
-  std::string error_msg_;
-  InvalidImageFormatError(std::string error_msg)
-  : error_msg_{error_msg} {}
-  const char * what() {return error_msg_.c_str();}
-};
-
-}  // namespace
-
 namespace isaac_ros
 {
 namespace stereo_image_proc
 {
+
+using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
+
+constexpr char INPUT_RGB_COMPONENT_KEY[] = "sync/rgb_image_receiver";
+constexpr char INPUT_RGB_TENSOR_FORMAT[] = "nitros_image_bgr8";
+constexpr char INPUT_RGB_TOPIC_NAME[] = "left/image_rect_color";
+
+constexpr char INPUT_DISPARITY_COMPONENT_KEY[] = "sync/disparity_image_receiver";
+constexpr char INPUT_DISPARITY_TENSOR_FORMAT[] = "nitros_disparity_image_32FC1";
+constexpr char INPUT_DISPARITY_TOPIC_NAME[] = "disparity";
+
+constexpr char INPUT_LEFT_CAM_COMPONENT_KEY[] = "sync/left_cam_receiver";
+constexpr char INPUT_CAMERA_INFO_FORMAT[] = "nitros_camera_info";
+constexpr char INPUT_LEFT_CAMERA_TOPIC_NAME[] = "left/camera_info";
+
+constexpr char INPUT_RIGHT_CAM_COMPONENT_KEY[] = "sync/right_cam_receiver";
+constexpr char INPUT_RIGHT_CAMERA_TOPIC_NAME[] = "right/camera_info";
+
+constexpr char OUTPUT_COMPONENT_KEY[] = "vault/vault";
+constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_point_cloud";
+constexpr char OUTPUT_TOPIC_NAME[] = "points2";
+
+constexpr char APP_YAML_FILENAME[] = "config/nitros_point_cloud_node.yaml";
+constexpr char PACKAGE_NAME[] = "isaac_ros_stereo_image_proc";
+
+const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
+  {"isaac_ros_nitros", "gxf/std/libgxf_std.so"},
+  {"isaac_ros_nitros", "gxf/multimedia/libgxf_multimedia.so"},
+  {"isaac_ros_nitros", "gxf/cuda/libgxf_cuda.so"},
+  {"isaac_ros_nitros", "gxf/serialization/libgxf_serialization.so"},
+  {"isaac_ros_stereo_image_proc", "lib/libgxf_point_cloud.so"},
+  {"isaac_ros_stereo_image_proc", "lib/libgxf_synchronization.so"},
+};
+const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
+  "isaac_ros_stereo_point_cloud",
+};
+const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
+const std::vector<std::string> GENERATOR_RULE_FILENAMES = {};
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
+  {INPUT_RGB_COMPONENT_KEY,
+    {
+      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
+      .qos = rclcpp::QoS(1),
+      .compatible_data_format = INPUT_RGB_TENSOR_FORMAT,
+      .topic_name = INPUT_RGB_TOPIC_NAME,
+    }
+  },
+  {INPUT_DISPARITY_COMPONENT_KEY,
+    {
+      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
+      .qos = rclcpp::QoS(1),
+      .compatible_data_format = INPUT_DISPARITY_TENSOR_FORMAT,
+      .topic_name = INPUT_DISPARITY_TOPIC_NAME,
+    }
+  },
+  {INPUT_LEFT_CAM_COMPONENT_KEY,
+    {
+      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
+      .qos = rclcpp::QoS(1),
+      .compatible_data_format = INPUT_CAMERA_INFO_FORMAT,
+      .topic_name = INPUT_LEFT_CAMERA_TOPIC_NAME,
+    }
+  },
+  {INPUT_RIGHT_CAM_COMPONENT_KEY,
+    {
+      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
+      .qos = rclcpp::QoS(1),
+      .compatible_data_format = INPUT_CAMERA_INFO_FORMAT,
+      .topic_name = INPUT_RIGHT_CAMERA_TOPIC_NAME,
+    }
+  },
+  {OUTPUT_COMPONENT_KEY,
+    {
+      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
+      .qos = rclcpp::QoS(1),
+      .compatible_data_format = OUTPUT_DEFAULT_TENSOR_FORMAT,
+      .topic_name = OUTPUT_TOPIC_NAME,
+      .frame_id_source_key = INPUT_RGB_COMPONENT_KEY
+    }
+  }
+};
+#pragma GCC diagnostic pop
+
 PointCloudNode::PointCloudNode(const rclcpp::NodeOptions & options)
-: Node("point_cloud_node", options),
-  queue_size_(declare_parameter<int>("queue_size", rmw_qos_profile_default.depth)),
+: nitros::NitrosNode(options,
+    APP_YAML_FILENAME,
+    CONFIG_MAP,
+    PRESET_EXTENSION_SPEC_NAMES,
+    EXTENSION_SPEC_FILENAMES,
+    GENERATOR_RULE_FILENAMES,
+    EXTENSIONS,
+    PACKAGE_NAME),
   use_color_(declare_parameter<bool>("use_color", false)),
-  sub_left_image_(message_filters::Subscriber<sensor_msgs::msg::Image>(
-      this, "left/image_rect_color")),
-  sub_left_info_(message_filters::Subscriber<sensor_msgs::msg::CameraInfo>(
-      this, "left/camera_info")),
-  sub_right_info_(message_filters::Subscriber<sensor_msgs::msg::CameraInfo>(
-      this, "right/camera_info")),
-  sub_disparity_(message_filters::Subscriber<stereo_msgs::msg::DisparityImage>(
-      this, "disparity")),
-  pub_(create_publisher<sensor_msgs::msg::PointCloud2>("points2", 1))
+  unit_scaling_(declare_parameter<float>("unit_scaling", 1.0))
 {
-  // Ensure hardware has 32 bit floating point
-  if (!std::numeric_limits<float>::is_iec559) {
-    throw std::runtime_error(
-            "Hardware does not support 32-bit IEEE754 floating point standard");
-  }
+  RCLCPP_DEBUG(get_logger(), "[PointCloudNode] Constructor");
 
-  // Set the unit scaling
-  cloud_compute_.SetUnitScaling(declare_parameter<float>("unit_scaling", 1.0f));
-
-  // Set the sync policy
-  exact_sync_.reset(
-    new ExactSync(
-      ExactPolicy(queue_size_),
-      sub_left_image_, sub_left_info_,
-      sub_right_info_, sub_disparity_));
-
-  using namespace std::placeholders;
-  exact_sync_->registerCallback(
-    std::bind(&PointCloudNode::PointCloudCallback, this, _1, _2, _3, _4));
+  startNitrosNode();
 }
 
-void PointCloudNode::PointCloudCallback(
-  const sensor_msgs::msg::Image::ConstSharedPtr & left_image_msg,
-  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & left_info_msg,
-  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & right_info_msg,
-  const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg)
+void PointCloudNode::preLoadGraphCallback()
 {
-  if (left_image_msg->height != disp_msg->image.height ||
-    left_image_msg->width != disp_msg->image.width)
-  {
-    RCLCPP_ERROR(get_logger(), "Error: RGB & disparity image dimensions do not match!");
-    return;
-  }
+  RCLCPP_INFO(get_logger(), "[PointCloudNode] preLoadGraphCallback().");
 
-  auto cloud_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
-  FormatPointCloudMessage(cloud_msg, disp_msg);
-
-  PointCloudProperties cloud_properties;
-  cloud_properties = CreatePointCloudProperties(cloud_msg);
-
-  CameraIntrinsics intrinsics;
-  intrinsics = CreateCameraIntrinsics(
-    stereo_camera_model_,
-    left_info_msg,
-    right_info_msg);
-
-  DisparityProperties disparity_properties;
-  try {
-    disparity_properties = CreateDisparityProperties(disp_msg);
-  } catch (InvalidImageFormatError & e) {
-    RCLCPP_ERROR(get_logger(), e.what());
-    return;
-  }
-
-  RGBProperties rgb_properties;
-  if (use_color_) {
-    try {
-      rgb_properties = CreateRGBProperties(left_image_msg);
-      cloud_compute_.SetUseColor(true);
-    } catch (InvalidImageFormatError & e) {
-      RCLCPP_ERROR(get_logger(), e.what());
-      cloud_compute_.SetUseColor(false);
-    }
-  }
-
-  SelectDisparityFormatAndCompute(
-    cloud_msg, cloud_properties, disp_msg, disparity_properties,
-    left_image_msg, rgb_properties, intrinsics);
-
-  pub_->publish(*cloud_msg);
+  NitrosNode::preLoadGraphSetParameter(
+    "point_cloud",
+    "nvidia::isaac_ros::point_cloud::PointCloud",
+    "unit_scaling",
+    std::to_string(unit_scaling_));
 }
 
-void PointCloudNode::FormatPointCloudMessage(
-  sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg,
-  const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg)
+void PointCloudNode::postLoadGraphCallback()
 {
-  cloud_msg->header = disp_msg->image.header;
-  cloud_msg->height = disp_msg->image.height;
-  cloud_msg->width = disp_msg->image.width;
-  cloud_msg->is_bigendian = false;
-  cloud_msg->is_dense = false;
+  RCLCPP_DEBUG(get_logger(), "[PointCloudNode] postLoadGraphCallback().");
 
-  sensor_msgs::PointCloud2Modifier pc2_modifier(*cloud_msg);
-
-  if (use_color_) {
-    // Data format: x,y,z,rgb; 16 bytes per point
-    pc2_modifier.setPointCloud2Fields(
-      4,
-      "x", 1, sensor_msgs::msg::PointField::FLOAT32,
-      "y", 1, sensor_msgs::msg::PointField::FLOAT32,
-      "z", 1, sensor_msgs::msg::PointField::FLOAT32,
-      "rgb", 1, sensor_msgs::msg::PointField::FLOAT32);
-  } else {
-    // Data format: x,y,z; 12 bytes per point
-    pc2_modifier.setPointCloud2Fields(
-      3,
-      "x", 1, sensor_msgs::msg::PointField::FLOAT32,
-      "y", 1, sensor_msgs::msg::PointField::FLOAT32,
-      "z", 1, sensor_msgs::msg::PointField::FLOAT32);
-  }
+  // Update point cloud parameters
+  getNitrosContext().setParameterBool(
+    "point_cloud", "nvidia::isaac_ros::point_cloud::PointCloud", "use_color",
+    use_color_);
 }
 
-PointCloudProperties PointCloudNode::CreatePointCloudProperties(
-  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg)
-{
-  const unsigned int byte_unit_conversion_factor = sizeof(float);
-
-  PointCloudProperties cloud_properties;
-  cloud_properties.point_row_step = cloud_msg->row_step / byte_unit_conversion_factor;
-  cloud_properties.point_step = cloud_msg->point_step / byte_unit_conversion_factor;
-  cloud_properties.x_offset = cloud_msg->fields[0].offset / byte_unit_conversion_factor;
-  cloud_properties.y_offset = cloud_msg->fields[1].offset / byte_unit_conversion_factor;
-  cloud_properties.z_offset = cloud_msg->fields[2].offset / byte_unit_conversion_factor;
-  cloud_properties.is_bigendian = cloud_msg->is_bigendian;
-  cloud_properties.bad_point = std::numeric_limits<float>::quiet_NaN();
-  if (use_color_) {
-    cloud_properties.rgb_offset = cloud_msg->fields[3].offset / byte_unit_conversion_factor;
-  }
-  cloud_properties.buffer_size = cloud_msg->row_step * cloud_msg->height;
-  return cloud_properties;
-}
-
-DisparityProperties PointCloudNode::CreateDisparityProperties(
-  const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg)
-{
-  if (disparity_byte_conversion.find(disp_msg->image.encoding) ==
-    disparity_byte_conversion.end())
-  {
-    throw InvalidImageFormatError(
-            "Unsupported encoding " + disp_msg->image.encoding + "! Not publishing");
-  }
-
-  DisparityProperties disparity_properties;
-  disparity_properties.row_step = disp_msg->image.step /
-    disparity_byte_conversion.at(disp_msg->image.encoding);
-
-  disparity_properties.height = disp_msg->image.height;
-  disparity_properties.width = disp_msg->image.width;
-  disparity_properties.buffer_size = disp_msg->image.step * disp_msg->image.height;
-  disparity_properties.encoding = disp_msg->image.encoding;
-  return disparity_properties;
-}
-
-RGBProperties PointCloudNode::CreateRGBProperties(
-  const sensor_msgs::msg::Image::ConstSharedPtr & rgb_msg)
-{
-  RGBProperties rgb_properties;
-  rgb_properties.row_step = rgb_msg->step;
-  rgb_properties.height = rgb_msg->height;
-  rgb_properties.width = rgb_msg->width;
-  rgb_properties.buffer_size = rgb_msg->step * rgb_msg->height;
-  rgb_properties.encoding = rgb_msg->encoding;
-
-  // Only support 8 bit encodings (since point cloud can only support each color point with 8 bits)
-  if (rgb_msg->encoding == sensor_msgs::image_encodings::RGB8) {
-    rgb_properties.red_offset = 0;
-    rgb_properties.green_offset = 1;
-    rgb_properties.blue_offset = 2;
-    rgb_properties.color_step = 3;
-  } else if (rgb_msg->encoding == sensor_msgs::image_encodings::BGR8) {
-    rgb_properties.blue_offset = 0;
-    rgb_properties.green_offset = 1;
-    rgb_properties.red_offset = 2;
-    rgb_properties.color_step = 3;
-  } else if (rgb_msg->encoding == sensor_msgs::image_encodings::MONO8) {
-    rgb_properties.red_offset = 0;
-    rgb_properties.green_offset = 0;
-    rgb_properties.blue_offset = 0;
-    rgb_properties.color_step = 1;
-  } else {
-    throw InvalidImageFormatError(
-            "Unsupported encoding " + rgb_msg->encoding + "! Not publishing color");
-  }
-  return rgb_properties;
-}
-
-CameraIntrinsics PointCloudNode::CreateCameraIntrinsics(
-  image_geometry::StereoCameraModel & stereo_camera_model,
-  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & left_info_msg,
-  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & right_info_msg)
-{
-  CameraIntrinsics intrinsics;
-  stereo_camera_model.fromCameraInfo(left_info_msg, right_info_msg);
-  const cv::Matx44d reprojection_matrix = stereo_camera_model.reprojectionMatrix();
-  for (auto i = 0; i < intrinsics.reprojection_matrix_rows; ++i) {
-    for (auto j = 0; j < intrinsics.reprojection_matrix_cols; ++j) {
-      intrinsics.reprojection_matrix[i][j] = reprojection_matrix(i, j);
-    }
-  }
-  return intrinsics;
-}
-
-void PointCloudNode::SelectDisparityFormatAndCompute(
-  sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg,
-  const PointCloudProperties & cloud_properties,
-  const stereo_msgs::msg::DisparityImage::ConstSharedPtr & disp_msg,
-  const DisparityProperties & disparity_properties,
-  const sensor_msgs::msg::Image::ConstSharedPtr & rgb_msg,
-  const RGBProperties & rgb_properties,
-  const CameraIntrinsics & intrinsics)
-{
-  auto disparity_encoding = disp_msg->image.encoding;
-
-  // Select the appropiate disparity type so that the disparity image is interpreted correctly
-  if (disparity_encoding == sensor_msgs::image_encodings::MONO8) {
-    cloud_compute_.ComputePointCloudData<uint8_t>(
-      cloud_msg->data, cloud_properties, disp_msg->image.data, disparity_properties,
-      rgb_msg->data, rgb_properties, intrinsics);
-  } else if (disparity_encoding == sensor_msgs::image_encodings::TYPE_8UC1) {
-    cloud_compute_.ComputePointCloudData<uint8_t>(
-      cloud_msg->data, cloud_properties, disp_msg->image.data, disparity_properties,
-      rgb_msg->data, rgb_properties, intrinsics);
-  } else if (disparity_encoding == sensor_msgs::image_encodings::MONO16) {
-    cloud_compute_.ComputePointCloudData<uint16_t>(
-      cloud_msg->data, cloud_properties, disp_msg->image.data, disparity_properties,
-      rgb_msg->data, rgb_properties, intrinsics);
-  } else if (disparity_encoding == sensor_msgs::image_encodings::TYPE_16UC1) {
-    cloud_compute_.ComputePointCloudData<uint16_t>(
-      cloud_msg->data, cloud_properties, disp_msg->image.data, disparity_properties,
-      rgb_msg->data, rgb_properties, intrinsics);
-  } else if (disparity_encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
-    cloud_compute_.ComputePointCloudData<float>(
-      cloud_msg->data, cloud_properties, disp_msg->image.data, disparity_properties,
-      rgb_msg->data, rgb_properties, intrinsics);
-  }
-}
+PointCloudNode::~PointCloudNode() {}
 
 }  // namespace stereo_image_proc
 }  // namespace isaac_ros
+}  // namespace nvidia
 
-#include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(isaac_ros::stereo_image_proc::PointCloudNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::stereo_image_proc::PointCloudNode)

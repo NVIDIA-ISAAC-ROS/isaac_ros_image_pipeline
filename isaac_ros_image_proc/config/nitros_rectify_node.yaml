@@ -1,0 +1,224 @@
+%YAML 1.2
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+---
+name: input_compositor
+components:
+- name: image_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: image_in
+    min_size: 1
+- name: cam_info_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: cam_info_in
+    min_size: 1
+- name: out
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: out
+    min_size: 1
+- name: compositor
+  type: nvidia::isaac_ros::MessageCompositor
+  parameters:
+    image_rx: image_in
+    camera_model_rx: cam_info_in
+    tx: out
+---
+name: rectifier
+components:
+- name: data_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: data_receiver
+    min_size: 1
+- name: data_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: data_transmitter
+    min_size: 1
+- name: input_camera
+  type: nvidia::cvcore::tensor_ops::CameraModel
+  parameters:
+    distortion_type: "FisheyeEquidistant"
+    distortion_coefficients: [0, 0, 0, 0,
+                              0, 0, 0, 0]
+    focal_length: [0, 0]
+    principle_point: [0, 0]
+    skew_value: 0.0
+- name: output_camera
+  type: nvidia::cvcore::tensor_ops::CameraModel
+  parameters:
+    distortion_type: "FisheyeEquidistant"
+    distortion_coefficients: [0, 0, 0, 0,
+                              0, 0, 0, 0]
+    focal_length: [0, 0]
+    principle_point: [0, 0]
+    skew_value: 0.0
+- name: reference_frame
+  type: nvidia::cvcore::tensor_ops::Frame3D
+  parameters:
+    rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    translation: [0, 0, 0]
+- name: pool
+  type: nvidia::gxf::BlockMemoryPool
+  parameters:
+    storage_type: 1
+    block_size: 7372800
+    num_blocks: 40
+- name: undistort_algo
+  type: nvidia::cvcore::tensor_ops::StreamUndistort
+  parameters:
+    input_camera_model: input_camera
+    reference_frame: reference_frame
+    output_camera_model: output_camera
+    regions_width: [1280]
+    regions_height: [800]
+    horizontal_intervals: [4]
+    vertical_intervals: [4]
+    interp_type: "cubic_catmullrom"
+    border_type: "zero"
+    receiver: data_receiver
+    transmitter: data_transmitter
+    pool: pool
+    stream: resource/stream
+    input_adapter: resource/adapter
+    output_adapter: resource/adapter
+    output_name: "image"
+---
+name: splitter
+components:
+- name: data_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: data_receiver
+    min_size: 1
+- name: image_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: image_transmitter
+    min_size: 1
+- name: camera_model_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: camera_model_transmitter
+    min_size: 1
+- name: splitter
+  type: nvidia::isaac_ros::MessageSplitter
+  parameters:
+    rx: data_receiver
+    image_tx: image_transmitter
+    camera_model_tx: camera_model_transmitter
+---
+name: image_vault
+components:
+- name: signal
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: signal
+    min_size: 1
+- name: vault
+  type: nvidia::gxf::Vault
+  parameters:
+    source: signal
+    max_waiting_count: 1
+    drop_waiting: false
+---
+name: camerainfo_vault
+components:
+- name: signal
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: signal
+    min_size: 1
+- name: vault
+  type: nvidia::gxf::Vault
+  parameters:
+    source: signal
+    max_waiting_count: 1
+    drop_waiting: false
+---
+name: resource
+components:
+- name: stream
+  type: nvidia::cvcore::tensor_ops::TensorStream
+  parameters:
+    backend_type: "VPI"
+    engine_type: "GPU"
+- name: adapter
+  type: nvidia::cvcore::tensor_ops::ImageAdapter
+  parameters:
+    message_type: "VideoBuffer"
+---
+components:
+- type: nvidia::gxf::Connection
+  parameters:
+    source: input_compositor/out
+    target: rectifier/data_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: rectifier/data_transmitter
+    target: splitter/data_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: splitter/image_transmitter
+    target: image_vault/signal
+- type: nvidia::gxf::Connection
+  parameters:
+    source: splitter/camera_model_transmitter
+    target: camerainfo_vault/signal
+---
+name: utils
+components:
+- name: clock
+  type: nvidia::gxf::RealtimeClock
+- type: nvidia::gxf::GreedyScheduler
+  parameters:
+    clock: clock
+    stop_on_deadlock: false

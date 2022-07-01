@@ -1,0 +1,213 @@
+%YAML 1.2
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+---
+name: sync
+components:
+- name: disparity_image_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: disparity_image_receiver
+    min_size: 1
+- name: rgb_image_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: rgb_image_receiver
+    min_size: 1
+- name: data_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- name: left_cam_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: left_cam_receiver
+    min_size: 1
+- name: right_cam_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: right_cam_receiver
+    min_size: 1
+- type: nvidia::isaac_ros::Synchronization
+  parameters:
+    disparity_image_input: disparity_image_receiver
+    rgb_image_input: rgb_image_receiver
+    left_cam_input: left_cam_receiver
+    right_cam_input: right_cam_receiver
+    disparity_image_output: disparity_image_transmitter
+    rgb_image_output: rgb_image_transmitter
+    left_cam_output: left_cam_transmitter
+    right_cam_output: right_cam_transmitter
+    inputs: [disparity_image_receiver, rgb_image_receiver, left_cam_receiver, right_cam_receiver]
+    outputs: [disparity_image_transmitter, rgb_image_transmitter, left_cam_transmitter, right_cam_transmitter]
+- name: disparity_image_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: disparity_image_transmitter
+    min_size: 1
+- name: rgb_image_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: rgb_image_transmitter
+    min_size: 1
+- name: left_cam_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: left_cam_transmitter
+    min_size: 1
+- name: right_cam_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: right_cam_transmitter
+    min_size: 1
+---
+name: point_cloud
+components:
+- name: rgb_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: rgb_receiver
+    min_size: 1
+- name: disparity_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: disparity_receiver
+    min_size: 1
+- name: left_cam_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: left_cam_receiver
+    min_size: 1
+- name: right_cam_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: right_cam_receiver
+    min_size: 1
+- name: data_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: data_transmitter
+    min_size: 1
+- name: pool
+  type: nvidia::gxf::BlockMemoryPool
+  parameters:
+    storage_type: 1
+    block_size: 33177600
+    num_blocks: 40
+- type: nvidia::isaac_ros::point_cloud::PointCloud
+  parameters:
+    pool: pool
+    left_rect_image_receiver: rgb_receiver
+    disparity_image_receiver: disparity_receiver
+    left_cam_info_receiver: left_cam_receiver
+    right_cam_info_receiver: right_cam_receiver
+    output_transmitter: data_transmitter
+    use_color: false
+    unit_scaling: 1
+---
+name: vault
+components:
+- name: signal
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: signal
+    min_size: 1
+- name: vault
+  type: nvidia::gxf::Vault
+  parameters:
+    source: signal
+    max_waiting_count: 1
+    drop_waiting: false
+---
+name: connections
+components:
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/disparity_image_transmitter
+    target: point_cloud/disparity_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/rgb_image_transmitter
+    target: point_cloud/rgb_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/left_cam_transmitter
+    target: point_cloud/left_cam_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/right_cam_transmitter
+    target: point_cloud/right_cam_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: point_cloud/data_transmitter
+    target: vault/signal
+---
+components:
+- type: nvidia::gxf::GreedyScheduler
+  parameters:
+    clock: clock
+    stop_on_deadlock: false
+- name: clock
+  type: nvidia::gxf::RealtimeClock

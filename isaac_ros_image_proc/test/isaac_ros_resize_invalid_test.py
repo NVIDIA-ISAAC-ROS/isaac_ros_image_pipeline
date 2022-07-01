@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -25,7 +25,6 @@ SCALE_HEIGHT = -2.0
 SCALE_WIDTH = -3.0
 HEIGHT = -20
 WIDTH = -20
-BACKENDS = 'CUDA'
 
 
 @pytest.mark.rostest
@@ -34,16 +33,12 @@ def generate_test_description():
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
-            plugin='isaac_ros::image_proc::ResizeNode',
+            plugin='nvidia::isaac_ros::image_proc::ResizeNode',
             name='resize_node',
             namespace=IsaacROSResizeInvalidTest.generate_namespace(),
             parameters=[{
-                    'use_relative_scale': USE_RELATIVE_SCALE,
-                    'scale_height': SCALE_HEIGHT,
-                    'scale_width': SCALE_WIDTH,
-                    'height': HEIGHT,
-                    'width': WIDTH,
-                    'backends': BACKENDS,
+                'output_height': -20,
+                'output_width': -20,
             }])]
 
     resize_container = launch_ros.actions.ComposableNodeContainer(
@@ -66,14 +61,15 @@ class IsaacROSResizeInvalidTest(IsaacROSBaseTest):
     @IsaacROSBaseTest.for_each_test_case(subfolder='resize')
     def test_resize_invalid(self, test_folder) -> None:
         """Expect the node to log an error when given invalid input."""
-        self.generate_namespace_lookup(['image', 'camera_info', 'resized/image'])
+        self.generate_namespace_lookup(['image', 'camera_info', 'resize/image'])
         received_messages = {}
 
         resized_image_sub, rosout_sub = self.create_logging_subscribers(
-            subscription_requests=[(self.namespaces['resized/image'], Image), ('/rosout', Log)],
+            subscription_requests=[(self.namespaces['resize/image'], Image), ('/rosout', Log)],
             use_namespace_lookup=False,
             received_messages=received_messages,
-            accept_multiple_messages=True
+            accept_multiple_messages=True,
+            qos_profile=self.DEFAULT_BUFFER_QOS
         )
 
         image_pub = self.node.create_publisher(
@@ -113,7 +109,7 @@ class IsaacROSResizeInvalidTest(IsaacROSBaseTest):
 
             # Make sure no output image was received in the error case
             self.assertEqual(
-                len(received_messages[self.namespaces['resized/image']]), 0,
+                len(received_messages[self.namespaces['resize/image']]), 0,
                 'Resized image was received despite error!')
 
         finally:

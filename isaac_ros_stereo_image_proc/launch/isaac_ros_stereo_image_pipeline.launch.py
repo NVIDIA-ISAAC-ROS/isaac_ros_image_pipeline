@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -15,15 +15,15 @@ def generate_launch_description():
     disparity_node = ComposableNode(
         name='disparity',
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::DisparityNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
         parameters=[{
                 'backends': 'CUDA',
-                'max_disparity': 64,
+                'max_disparity': 64.0,
         }])
 
     pointcloud_node = ComposableNode(
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::PointCloudNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::PointCloudNode',
         parameters=[{
                 'use_color': False,
         }],
@@ -31,7 +31,7 @@ def generate_launch_description():
 
     realsense_camera_node = Node(
         package='realsense2_camera',
-        node_executable='realsense2_camera_node',
+        executable='realsense2_camera_node',
         parameters=[{
                 'infra_height': 270,
                 'infra_width': 480,
