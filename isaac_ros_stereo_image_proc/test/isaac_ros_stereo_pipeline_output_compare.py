@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -23,7 +23,7 @@ from sensor_msgs.msg import CameraInfo, Image, PointCloud2
 from sensor_msgs_py import point_cloud2
 
 USE_COLOR = True
-AVOID_PADDING = False
+AVOID_PADDING = True
 
 
 @pytest.mark.rostest
@@ -32,12 +32,11 @@ def generate_test_description():
     disparity_node = ComposableNode(
         name='disparity_node',
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::DisparityNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
         namespace=IsaacROSStereoPipelineComparisonTest.generate_namespace(),
         parameters=[{
                 'backends': 'CUDA',
-                'max_disparity': 64,
-                'scale': 1/32
+                'max_disparity': 64.0
         }],
         remappings=[('disparity', 'isaac_ros/disparity')]
     )
@@ -45,7 +44,7 @@ def generate_test_description():
     point_cloud_node = ComposableNode(
         name='point_cloud_node',
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::PointCloudNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::PointCloudNode',
         namespace=IsaacROSStereoPipelineComparisonTest.generate_namespace(),
         parameters=[{'use_color': USE_COLOR, }],
         remappings=[('disparity', 'isaac_ros/disparity'),
@@ -162,7 +161,10 @@ class IsaacROSStereoPipelineComparisonTest(IsaacROSBaseTest):
                 rgb_error = 0
                 n = 0
                 for isaac_ros_pt, ref_pt in zip(isaac_ros_pts, ref_pts):
-                    isaac_ros_pt, ref_pt = np.array(isaac_ros_pt), np.array(ref_pt)
+                    # Unpack array to avoid 0-d and type inference issues
+                    isaac_ros_pt = np.array(
+                        [isaac_ros_pt[0], isaac_ros_pt[1], isaac_ros_pt[2], isaac_ros_pt[3]])
+                    ref_pt = np.array([ref_pt[0], ref_pt[1], ref_pt[2], ref_pt[3]])
 
                     if np.any(np.isnan(isaac_ros_pt)) or np.any(np.isnan(ref_pt)):
                         continue

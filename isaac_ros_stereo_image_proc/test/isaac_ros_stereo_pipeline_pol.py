@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -20,6 +20,8 @@ import rclpy
 
 from sensor_msgs.msg import CameraInfo, Image, PointCloud2
 
+MAX_DISPARITY = 64.0
+
 
 @pytest.mark.rostest
 def generate_test_description():
@@ -27,17 +29,16 @@ def generate_test_description():
     disparity_node = ComposableNode(
         name='disparity',
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::DisparityNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
         namespace=IsaacROSStereoPipelineTest.generate_namespace(),
         parameters=[{
                 'backends': 'CUDA',
-                'window_size': 5,
-                'max_disparity': 64,
+                'max_disparity': MAX_DISPARITY,
         }])
 
     pointcloud_node = ComposableNode(
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::PointCloudNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::PointCloudNode',
         namespace=IsaacROSStereoPipelineTest.generate_namespace(),
         parameters=[{
                 'use_color': False,

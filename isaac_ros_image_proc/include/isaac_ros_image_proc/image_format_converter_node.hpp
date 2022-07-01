@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -13,39 +13,36 @@
 
 #include <string>
 
-#include "image_transport/image_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "isaac_ros_nitros/nitros_node.hpp"
 
+namespace nvidia
+{
 namespace isaac_ros
 {
 namespace image_proc
 {
 
-class ImageFormatConverterNode : public rclcpp::Node
+class ImageFormatConverterNode : public nitros::NitrosNode
 {
 public:
   explicit ImageFormatConverterNode(const rclcpp::NodeOptions &);
 
+  ~ImageFormatConverterNode();
+
+  ImageFormatConverterNode(const ImageFormatConverterNode &) = delete;
+
+  ImageFormatConverterNode & operator=(const ImageFormatConverterNode &) = delete;
+
+  // The callback to be implemented by users for any required initialization
+  void postLoadGraphCallback() override;
+
 private:
-  /**
-   * @brief Callback to change the format of the image received by subscription
-   *
-   * @param image_msg The image message received
-   */
-  void FormatCallback(const sensor_msgs::msg::Image::ConstSharedPtr & image_msg);
-
-  // ROS2 Image subscriber for input and Image publisher for output
-  image_transport::Subscriber sub_;
-  image_transport::Publisher pub_;
-
-  // ROS2 parameter for specifying desired encoding
-  std::string encoding_desired_{};
-
-  // ROS2 parameter for VPI backend flags
-  uint32_t vpi_backends_{};
+  const std::string encoding_desired_;
 };
 
 }  // namespace image_proc
 }  // namespace isaac_ros
+}  // namespace nvidia
 
 #endif  // ISAAC_ROS_IMAGE_PROC__IMAGE_FORMAT_CONVERTER_NODE_HPP_

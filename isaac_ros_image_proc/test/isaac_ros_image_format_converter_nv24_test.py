@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -6,7 +6,7 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-"""Grayscale conversion test for the Isaac ROS Image Format Converter node."""
+"""NV24 test for the Isaac ROS Image Format Converter node."""
 
 import time
 
@@ -19,39 +19,56 @@ import pytest
 import rclpy
 from sensor_msgs.msg import Image
 
-ENCODING_DESIRED = 'mono8'
+ENCODING_DESIRED = 'bgr8'
 
 
 @pytest.mark.rostest
 def generate_test_description():
     """Generate launch description with all ROS2 nodes for testing."""
-    composable_nodes = [
-        launch_ros.descriptions.ComposableNode(
+    composable_nodes_1 = launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
             plugin='nvidia::isaac_ros::image_proc::ImageFormatConverterNode',
-            name='image_format_node',
-            namespace=IsaacROSFormatMono8Test.generate_namespace(),
+            name='image_format_node_nv24',
+            namespace=IsaacROSFormatNV24Test.generate_namespace(),
             parameters=[{
-                    'encoding_desired': ENCODING_DESIRED,
-            }])]
+                'encoding_desired': 'nv24',
+            }],
+            remappings=[('image', 'image_raw2')],
+        )
+
+    composable_nodes_2 = launch_ros.descriptions.ComposableNode(
+            package='isaac_ros_image_proc',
+            plugin='nvidia::isaac_ros::image_proc::ImageFormatConverterNode',
+            name='image_format_node_bgr8',
+            namespace=IsaacROSFormatNV24Test.generate_namespace(),
+            parameters=[{
+                'encoding_desired': ENCODING_DESIRED,
+            }],
+            remappings=[('image_raw', 'image_raw2')],
+        )
 
     format_container = launch_ros.actions.ComposableNodeContainer(
         name='format_container',
         namespace='',
         package='rclcpp_components',
-        executable='component_container',
-        composable_node_descriptions=composable_nodes,
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            composable_nodes_1,
+            composable_nodes_2
+        ],
+        arguments=['--ros-args', '--log-level', 'info',
+                   '--log-level', 'isaac_ros_test.image_format_node_bgr8:=debug'],
         output='screen'
     )
 
-    return IsaacROSFormatMono8Test.generate_test_description([format_container])
+    return IsaacROSFormatNV24Test.generate_test_description([format_container])
 
 
-class IsaacROSFormatMono8Test(IsaacROSBaseTest):
-    """Vaidate format conversion to the mono8 format."""
+class IsaacROSFormatNV24Test(IsaacROSBaseTest):
+    """Vaidate format conversion to the bgr8 format."""
 
-    def test_rgb_to_mono_conversion(self) -> None:
-        """Expect the node to convert rgb8 input images into the mono8 format."""
+    def test_rgb_to_bgr_conversion(self) -> None:
+        """Expect the node to convert rgb8 input images into the bgr8 format."""
         self.generate_namespace_lookup(['image_raw', 'image'])
         received_messages = {}
 
@@ -66,10 +83,10 @@ class IsaacROSFormatMono8Test(IsaacROSBaseTest):
         try:
             # Generate an input image in RGB encoding
             cv_image = np.zeros((300, 300, 3), np.uint8)
-            cv_image[:] = (255, 0, 0)  # Full red, partial opacity
+            cv_image[:] = (255, 0, 0)  # Full red
 
             image_raw = CvBridge().cv2_to_imgmsg(cv_image)
-            image_raw.encoding = 'rgb8'  # Set image encoding explicitly
+            image_raw.encoding = 'bgr8'  # Set image encoding explicitly
 
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 2
@@ -99,9 +116,9 @@ class IsaacROSFormatMono8Test(IsaacROSBaseTest):
             self.assertEqual(image.encoding, ENCODING_DESIRED, 'Incorrect output encoding!')
 
             # Make sure output image pixels match OpenCV result
-            image_mono_actual = CvBridge().imgmsg_to_cv2(image)
-            image_mono_expected = cv2.cvtColor(cv_image, cv2.COLOR_RGB2GRAY)
-            self.assertImagesEqual(image_mono_actual, image_mono_expected)
+            image_actual = CvBridge().imgmsg_to_cv2(image)
+            image_expected = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+            self.assertImagesEqual(image_actual, image_expected)
 
         finally:
             self.node.destroy_subscription(image_sub)

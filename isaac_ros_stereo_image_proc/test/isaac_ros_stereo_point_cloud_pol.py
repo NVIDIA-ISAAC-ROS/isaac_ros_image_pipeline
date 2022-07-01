@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -32,7 +32,7 @@ def generate_test_description():
     pointcloud_node = ComposableNode(
         name='point_cloud',
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::PointCloudNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::PointCloudNode',
         namespace=IsaacROSPointCloudTest.generate_namespace(),
         parameters=[{
             'use_color': True,
@@ -106,7 +106,6 @@ class IsaacROSPointCloudTest(IsaacROSBaseTest):
                 if 'points2' in received_messages:
                     done = True
                     break
-
             self.assertTrue(done, 'Appropiate output not received')
 
         finally:

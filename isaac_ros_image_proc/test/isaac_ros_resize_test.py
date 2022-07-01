@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -18,12 +18,8 @@ import pytest
 import rclpy
 from sensor_msgs.msg import CameraInfo, Image
 
-USE_RELATIVE_SCALE = False
-SCALE_HEIGHT = 2.0
-SCALE_WIDTH = 2.0
-HEIGHT = 20
-WIDTH = 20
-BACKENDS = 'CUDA'
+WIDTH = 100
+HEIGHT = 100
 
 
 @pytest.mark.rostest
@@ -32,16 +28,12 @@ def generate_test_description():
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
-            plugin='isaac_ros::image_proc::ResizeNode',
+            plugin='nvidia::isaac_ros::image_proc::ResizeNode',
             name='resize_node',
             namespace=IsaacROSResizeTest.generate_namespace(),
             parameters=[{
-                    'use_relative_scale': USE_RELATIVE_SCALE,
-                    'scale_height': SCALE_HEIGHT,
-                    'scale_width': SCALE_WIDTH,
-                    'height': HEIGHT,
-                    'width': WIDTH,
-                    'backends': BACKENDS,
+                'output_height': HEIGHT,
+                'output_width': WIDTH,
             }])]
 
     resize_container = launch_ros.actions.ComposableNodeContainer(
@@ -64,11 +56,16 @@ class IsaacROSResizeTest(IsaacROSBaseTest):
     @IsaacROSBaseTest.for_each_test_case(subfolder='resize')
     def test_resize_typical(self, test_folder) -> None:
         """Expect the node to output images with correctly resized dimensions."""
-        self.generate_namespace_lookup(['image', 'camera_info', 'resized/image'])
+        self.generate_namespace_lookup([
+            'image',
+            'camera_info',
+            'resize/image',
+            'resize/camera_info'
+        ])
         received_messages = {}
 
         resized_image_sub = self.create_logging_subscribers(
-            subscription_requests=[('resized/image', Image)],
+            subscription_requests=[('resize/image', Image)],
             received_messages=received_messages
         )
 
@@ -101,17 +98,17 @@ class IsaacROSResizeTest(IsaacROSBaseTest):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 # If we have received a message on the output topic, break
-                if 'resized/image' in received_messages:
+                if 'resize/image' in received_messages:
                     done = True
                     break
 
-            self.assertTrue(done, "Didn't receive output on resized/image topic!")
+            self.assertTrue(done, "Didn't receive output on resize/image topic!")
 
-            resized_image = received_messages['resized/image']
+            resized_image = received_messages['resize/image']
 
             # Make sure that the output image size is set to desired dimensions
-            desired_height = image.height * SCALE_HEIGHT if USE_RELATIVE_SCALE else HEIGHT
-            desired_width = image.width * SCALE_WIDTH if USE_RELATIVE_SCALE else WIDTH
+            desired_height = HEIGHT
+            desired_width = WIDTH
             self.assertEqual(resized_image.height, desired_height,
                              f'Height is not {desired_height}!')
             self.assertEqual(resized_image.width, desired_width, f'Width is not {desired_width}!')

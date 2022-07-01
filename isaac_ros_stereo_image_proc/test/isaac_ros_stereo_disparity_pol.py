@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -21,16 +21,20 @@ import rclpy
 from sensor_msgs.msg import CameraInfo, Image
 from stereo_msgs.msg import DisparityImage
 
+MAX_DISPARITY = 64.0
+
 
 @pytest.mark.rostest
 def generate_test_description():
-
     disparity_node = ComposableNode(
         name='disparity',
         package='isaac_ros_stereo_image_proc',
-        plugin='isaac_ros::stereo_image_proc::DisparityNode',
+        plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
         namespace=IsaacROSDisparityTest.generate_namespace(),
-        parameters=[{'backends': 'CUDA'}],
+        parameters=[{
+                'backends': 'CUDA',
+                'max_disparity': MAX_DISPARITY,
+        }],
         remappings=[('disparity', 'disparity')]
     )
 
@@ -40,7 +44,8 @@ def generate_test_description():
         package='rclcpp_components',
         executable='component_container',
         composable_node_descriptions=[disparity_node],
-        output='screen'
+        output='screen',
+        arguments=['--ros-args', '--log-level', 'info']
     )
     return IsaacROSDisparityTest.generate_test_description([container])
 
@@ -78,23 +83,28 @@ class IsaacROSDisparityTest(IsaacROSBaseTest):
             image_right = JSONConversion.load_image_from_json(test_folder / 'image_right.json')
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
-
             end_time = time.time() + TIMEOUT
             done = False
 
             while time.time() < end_time:
-
                 image_left_pub.publish(image_left)
                 image_right_pub.publish(image_right)
                 camera_info_left.publish(camera_info)
                 camera_info_right.publish(camera_info)
-
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 if 'disparity' in received_messages:
                     done = True
                     break
             self.assertTrue(done, 'Didnt recieve output on disparity topic')
+
+            disparity = received_messages['disparity']
+            self.assertEqual(disparity.image.height, camera_info.height)
+            self.assertEqual(disparity.image.width, camera_info.width)
+            self.assertAlmostEqual(disparity.f, -0.3678634)
+            self.assertAlmostEqual(disparity.t, 434.9440002)
+            self.assertAlmostEqual(disparity.min_disparity, 0.0)
+            self.assertAlmostEqual(disparity.max_disparity, MAX_DISPARITY)
 
         finally:
             [self.node.destroy_subscription(sub) for sub in subs]

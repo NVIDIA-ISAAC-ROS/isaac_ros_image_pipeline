@@ -4,7 +4,7 @@
   },
   "height": 460,
   "width": 460,
-  "distortion_model": "plumb_bob",
+  "distortion_model": "equidistant",
   "D": [
     -0.363528858080088,
     0.16117037733986861,
