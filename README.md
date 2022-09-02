@@ -33,7 +33,7 @@ This metapackage offers similar functionality as the standard, CPU-based [`image
 - [References](#references)
 
 ## Latest Update
-Update 2022-06-30: Support NITROS acceleration
+Update 2022-08-31: Image flip support and update to be compatible with JetPack 5.0.2
 
 ## Performance
 The following are the benchmark performance results of Image_Proc Nodes and pipeline in this package, by supported platform:
@@ -47,10 +47,12 @@ The following are the benchmark performance results of Image_Proc Nodes and pipe
 ## Supported Platforms
 This package is designed and tested to be compatible with ROS2 Humble running on [Jetson](https://developer.nvidia.com/embedded-computing) or an x86_64 system with an NVIDIA GPU.
 
+> **Note**: Versions of ROS2 earlier than Humble are **not** supported. This package depends on specific ROS2 implementation features that were only introduced beginning with the Humble release.
+
 
 | Platform | Hardware                                                                                                                                                                                                | Software                                                                                                             | Notes                                                                                                                                                                                   |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)<br/>[Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.0.1 DP](https://developer.nvidia.com/embedded/jetpack)                                                    | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
+| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)<br/>[Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.0.2](https://developer.nvidia.com/embedded/jetpack)                                                       | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
 | x86_64   | NVIDIA GPU                                                                                                                                                                                              | [Ubuntu 20.04+](https://releases.ubuntu.com/20.04/) <br> [CUDA 11.6.1+](https://developer.nvidia.com/cuda-downloads) |
 
 ### Docker
@@ -148,6 +150,7 @@ The `isaac_ros_image_proc` package offers functionality for rectifying/undistort
 | `ImageFormatConverterNode` | `image_raw`, `camera_info`: The input camera stream | `image`: The converted image                                    | `encoding_desired`: Target encoding to convert to.<br>                                                                                                                                    |  |
 | `RectifyNode`              | `image_raw`, `camera_info`: The input camera stream | `image_rect`, `camera_info_rect`: The rectified camera stream   | `output_height`: The absolute height to resize to <br> `output_width`: The absolute width to resize to <br>  `keep_aspect_ratio`: The flag to keep the aspect_ratio when set to true <br> |  |
 | `ResizeNode`               | `image`, `camera_info`: The input camera stream     | `resize/image`, `resize/camera_info`: The resized camera stream | `output_height`: The absolute height to resize to <br> `output_width`: The absolute width to resize to <br>                                                                               |
+| `ImageFlipNode`            | `image`: The input image data                       | `image_flipped`: The flipped image                              |    `flip_mode`: Supports 3 modes - `HORIZONTAL`, `VERTICAL`, and `BOTH`                                                                                  |
 
 **Limitation:** Image proc nodes require even number dimensions for images.
 
@@ -188,6 +191,7 @@ admin@workstation:/workspaces/isaac_ros-dev$  ros2 launch realsense2_camera rs_l
 
 | Date       | Changes                                                                                                                                                    |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2022-08-31 | Image flip support and update to be compatible with JetPack 5.0.2                                                                                                                 |
 | 2022-06-30 | Migrated to NITROS based implementation                                                                                                                    |
 | 2021-10-20 | Migrated to [NVIDIA-ISAAC-ROS](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline). Fixed handling of extrinsics in Rectify and Disparity nodes. |
 | 2021-08-11 | Initial release to [NVIDIA-AI-IOT](https://github.com/NVIDIA-AI-IOT/isaac_ros_image_pipeline)                                                              |

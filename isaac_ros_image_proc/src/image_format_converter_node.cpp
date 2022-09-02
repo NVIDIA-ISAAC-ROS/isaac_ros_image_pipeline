@@ -15,6 +15,8 @@
 #include <string>
 #include <utility>
 
+#include "isaac_ros_nitros_image_type/nitros_image.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
@@ -123,6 +125,8 @@ ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & o
         nitros_format->second.c_str());
     }
   }
+
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
 
   startNitrosNode();
 }

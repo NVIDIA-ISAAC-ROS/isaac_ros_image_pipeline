@@ -60,6 +60,15 @@ target_link_libraries(resize_node vpi)
 rclcpp_components_register_nodes(resize_node "nvidia::isaac_ros::image_proc::ResizeNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::image_proc::ResizeNode;$<TARGET_FILE:resize_node>\n")
 
+# flip_node
+ament_auto_add_library(flip_node SHARED src/image_flip_node.cpp)
+target_compile_definitions(flip_node
+  PRIVATE "COMPOSITION_BUILDING_DLL"
+)
+target_link_libraries(flip_node vpi)
+rclcpp_components_register_nodes(flip_node "nvidia::isaac_ros::image_proc::ImageFlipNode")
+set(node_plugins "${node_plugins}nvidia::isaac_ros::image_proc::ImageFlipNode;$<TARGET_FILE:flip_node>\n")
+
 # Install config directory
 install(
   DIRECTORY config
@@ -115,10 +124,11 @@ if(BUILD_TESTING)
   add_launch_test(test/isaac_ros_image_format_converter_nv24_test.py)
   add_launch_test(test/isaac_ros_rectify_test.py)
   add_launch_test(test/isaac_ros_resize_test.py)
-  # Temporarily removing this test, it is tracked in IROS-1928
-  #add_launch_test(test/isaac_ros_resize_aspect_ratio_test.py)
   add_launch_test(test/isaac_ros_resize_invalid_test.py)
+  add_launch_test(test/isaac_ros_image_flip_180_test.py)
+  add_launch_test(test/isaac_ros_image_flip_hori_test.py)
+  add_launch_test(test/isaac_ros_image_flip_vert_test.py)
 
 endif()
 
-ament_auto_package()
+ament_auto_package(INSTALL_TO_SHARE launch)
