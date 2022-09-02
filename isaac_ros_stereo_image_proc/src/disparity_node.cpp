@@ -15,6 +15,10 @@
 #include <string>
 #include <utility>
 
+#include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
+#include "isaac_ros_nitros_disparity_image_type/nitros_disparity_image.hpp"
+#include "isaac_ros_nitros_image_type/nitros_image.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
@@ -121,6 +125,10 @@ DisparityNode::DisparityNode(const rclcpp::NodeOptions & options)
   max_disparity_(declare_parameter<float>("max_disparity", 64))
 {
   RCLCPP_DEBUG(get_logger(), "[DisparityNode] Constructor");
+
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosDisparityImage>();
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
 
   startNitrosNode();
 }

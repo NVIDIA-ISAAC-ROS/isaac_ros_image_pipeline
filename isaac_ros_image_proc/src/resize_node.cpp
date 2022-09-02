@@ -15,7 +15,8 @@
 #include <string>
 #include <utility>
 
-#include "isaac_ros_nitros/types/nitros_image.hpp"
+#include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
+#include "isaac_ros_nitros_image_type/nitros_image.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
@@ -127,6 +128,10 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
             "[ResizeNode] Invalid output dimension "
             "Width and height need to be non-zero positive number.");
   }
+
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();
+  registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
+
   startNitrosNode();
 }
 
