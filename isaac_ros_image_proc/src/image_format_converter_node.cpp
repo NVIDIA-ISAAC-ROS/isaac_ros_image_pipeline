@@ -1,12 +1,19 @@
-/**
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA CORPORATION and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA CORPORATION is strictly prohibited.
- */
+// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+// Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "isaac_ros_image_proc/image_format_converter_node.hpp"
 
@@ -19,6 +26,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
+#include "sensor_msgs/sensor_msgs/image_encodings.hpp"
 
 namespace nvidia
 {
@@ -63,7 +71,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {INPUT_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = INPUT_DEFAULT_TENSOR_FORMAT,
       .topic_name = INPUT_TOPIC_NAME,
       .use_compatible_format_only = false,
@@ -72,7 +80,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {OUTPUT_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = OUTPUT_DEFAULT_TENSOR_FORMAT,
       .topic_name = OUTPUT_TOPIC_NAME,
       .use_compatible_format_only = false,
@@ -82,15 +90,17 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
 };
 #pragma GCC diagnostic pop
 
-// Ros image type to Nitros image type mapping
+// ROS image type to Nitros image type mapping
+namespace img_encodings = sensor_msgs::image_encodings;
 const std::unordered_map<std::string, std::string> ROS_2_NITROS_FORMAT_MAP({
-        {"rgb8", "nitros_image_rgb8"},
-        {"rgb16", "nitros_image_rgb16"},
-        {"bgr8", "nitros_image_bgr8"},
-        {"bgr16", "nitros_image_bgr16"},
-        {"mono8", "nitros_image_mono8"},
-        {"mono16", "nitros_image_mono16"},
-        {"nv24", "nitros_image_nv24"}
+        {img_encodings::RGB8, nitros::nitros_image_rgb8_t::supported_type_name},
+        {img_encodings::RGB16, nitros::nitros_image_rgb16_t::supported_type_name},
+        {img_encodings::BGR8, nitros::nitros_image_bgr8_t::supported_type_name},
+        {img_encodings::BGR16, nitros::nitros_image_bgr16_t::supported_type_name},
+        {img_encodings::MONO8, nitros::nitros_image_mono8_t::supported_type_name},
+        {img_encodings::MONO16, nitros::nitros_image_mono16_t::supported_type_name},
+        {img_encodings::NV24, nitros::nitros_image_nv24_t::supported_type_name},
+        {"nv12", nitros::nitros_image_nv12_t::supported_type_name},
       });
 
 ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & options)
@@ -112,8 +122,7 @@ ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & o
       RCLCPP_ERROR(
         get_logger(), "[ImageFormatConverterNode] Unsupported encoding[%s]",
         encoding_desired_.c_str());
-      throw std::invalid_argument(
-              "[ImageFormatConverterNode] Unsupported encoding.");
+      throw std::invalid_argument("[ImageFormatConverterNode] Unsupported encoding.");
 
     } else {
       config_map_[OUTPUT_COMPONENT_KEY].compatible_data_format = nitros_format->second;

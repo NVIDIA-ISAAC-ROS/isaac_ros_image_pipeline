@@ -18,7 +18,6 @@
 import os
 
 from ament_index_python.packages import get_package_share_directory
-
 import launch
 from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
@@ -32,49 +31,39 @@ def generate_launch_description():
         parameters=[{
                 'backends': 'CUDA',
                 'max_disparity': 64.0,
-        }])
+        }],
+        remappings=[('left/image_rect', 'rgb_left'),
+                    ('left/camera_info', 'camera_info_left'),
+                    ('right/image_rect', 'rgb_right'),
+                    ('right/camera_info', 'camera_info_right')])
 
     pointcloud_node = ComposableNode(
         package='isaac_ros_stereo_image_proc',
         plugin='nvidia::isaac_ros::stereo_image_proc::PointCloudNode',
         parameters=[{
-                'use_color': False,
+                'use_color': True,
+                'unit_scaling': 1.0
         }],
-        remappings=[('/left/image_rect_color', '/left/image_rect')])
-
-    # RealSense
-    realsense_config_file_path = os.path.join(
-        get_package_share_directory('isaac_ros_stereo_image_proc'),
-        'config', 'realsense.yaml'
-    )
-
-    realsense_node = ComposableNode(
-        package='realsense2_camera',
-        plugin='realsense2_camera::RealSenseNodeFactory',
-        parameters=[realsense_config_file_path],
-        remappings=[('/infra1/image_rect_raw', '/left/image_rect'),
-                    ('/infra1/camera_info', '/left/camera_info'),
-                    ('/infra2/image_rect_raw', '/right/image_rect'),
-                    ('/infra2/camera_info', '/right/camera_info')
-                    ]
-    )
+        remappings=[('left/image_rect_color', 'rgb_left'),
+                    ('left/camera_info', 'camera_info_left'),
+                    ('right/camera_info', 'camera_info_right')])
 
     container = ComposableNodeContainer(
         name='disparity_container',
         namespace='disparity',
         package='rclcpp_components',
         executable='component_container',
-        composable_node_descriptions=[disparity_node, pointcloud_node, realsense_node],
+        composable_node_descriptions=[disparity_node, pointcloud_node],
         output='screen'
     )
 
     rviz_config_path = os.path.join(get_package_share_directory(
-        'isaac_ros_stereo_image_proc'), 'config', 'isaac_ros_stereo_image_proc_realsense.rviz')
+        'isaac_ros_stereo_image_proc'), 'config', 'isaac_ros_stereo_image_proc_isaac_sim.rviz')
 
-    rviz = Node(
+    rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         arguments=['-d', rviz_config_path],
         output='screen')
 
-    return (launch.LaunchDescription([container, rviz]))
+    return (launch.LaunchDescription([container, rviz_node]))
