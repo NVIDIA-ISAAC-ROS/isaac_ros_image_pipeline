@@ -1,12 +1,19 @@
-/**
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA CORPORATION and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA CORPORATION is strictly prohibited.
- */
+// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+// Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "isaac_ros_stereo_image_proc/point_cloud_node.hpp"
 
@@ -59,8 +66,8 @@ const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_nitros", "gxf/multimedia/libgxf_multimedia.so"},
   {"isaac_ros_nitros", "gxf/cuda/libgxf_cuda.so"},
   {"isaac_ros_nitros", "gxf/serialization/libgxf_serialization.so"},
-  {"isaac_ros_stereo_image_proc", "lib/libgxf_point_cloud.so"},
-  {"isaac_ros_stereo_image_proc", "lib/libgxf_synchronization.so"},
+  {"isaac_ros_nitros", "gxf/libgxf_point_cloud.so"},
+  {"isaac_ros_nitros", "gxf/libgxf_synchronization.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_stereo_point_cloud",
@@ -73,7 +80,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {INPUT_RGB_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = INPUT_RGB_TENSOR_FORMAT,
       .topic_name = INPUT_RGB_TOPIC_NAME,
     }
@@ -81,7 +88,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {INPUT_DISPARITY_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = INPUT_DISPARITY_TENSOR_FORMAT,
       .topic_name = INPUT_DISPARITY_TOPIC_NAME,
     }
@@ -89,7 +96,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {INPUT_LEFT_CAM_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = INPUT_CAMERA_INFO_FORMAT,
       .topic_name = INPUT_LEFT_CAMERA_TOPIC_NAME,
     }
@@ -97,7 +104,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {INPUT_RIGHT_CAM_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = INPUT_CAMERA_INFO_FORMAT,
       .topic_name = INPUT_RIGHT_CAMERA_TOPIC_NAME,
     }
@@ -105,7 +112,7 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
   {OUTPUT_COMPONENT_KEY,
     {
       .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(1),
+      .qos = rclcpp::QoS(10),
       .compatible_data_format = OUTPUT_DEFAULT_TENSOR_FORMAT,
       .topic_name = OUTPUT_TOPIC_NAME,
       .frame_id_source_key = INPUT_RGB_COMPONENT_KEY

@@ -16,9 +16,35 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 ---
-name: Image Rectify Namespace Injector Rule
-operation: namespace_injector
-body:
-  components:
-    - type: nvidia::cvcore::tensor_ops::StreamUndistort
-      path_parameter_keys: [input_adapter, output_adapter, stream]
+device_type: ''
+serial_no: ''
+usb_port_id: ''
+
+rgb_camera:
+  profile: '640x480x15'
+color_qos: "SENSOR_DATA"
+
+depth_module:
+  profile: '640x480x60'
+  emitter_enabled: 0
+  emitter_on_off: false
+depth_qos: "SENSOR_DATA"
+depth_info_qos: "SYSTEM_DEFAULT"
+
+infra_qos: "SENSOR_DATA"
+
+enable_accel: false
+enable_color: false
+enable_depth: false
+enable_gyro: false
+enable_infra1: true
+enable_infra2: true
+
+pointcloud:
+  enable: false
+
+pointcloud_texture_index: 0
+pointcloud_texture_stream: RS2_STREAM_ANY
+
+enable_sync: false
+align_depth: false
