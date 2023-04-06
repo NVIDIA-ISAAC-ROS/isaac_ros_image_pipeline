@@ -1,18 +1,41 @@
 # Isaac ROS Image Pipeline
 
-<div align="center"><img src="resources/100_right.JPG" width="300"/><img src="resources/300_right_hallway2_rect.png" width="300"/><img src="resources/300_right_hallway2_gray_rect.png" width="300"/></div>
-
 ## Overview
 
-This metapackage offers similar functionality as the standard, CPU-based [`image_pipeline` metapackage](http://wiki.ros.org/image_pipeline), but does so by leveraging NVIDIA GPUs and the Jetson platform's specialized computer vision hardware. Considerable effort has been made to ensure that replacing `image_pipeline` with `isaac_ros_image_pipeline` on a Jetson device is as painless a transition as possible.
+Isaac ROS Image Pipeline is a metapackage of functionality for image processing. Camera output often needs pre-processing to meet the input requirements of multiple different perception functions. This can include cropping, resizing, mirroring, correcting for lens distortion, and color space conversion. For stereo cameras, additional processing is required to produce disparity between left + right images and a point cloud for depth perception.
+
+This package is accelerated using the GPU and specialized hardware engines for image computation, replacing the CPU-based [`image_pipeline` metapackage](http://wiki.ros.org/image_pipeline). Considerable effort has been made to ensure that replacing `image_pipeline` with `isaac_ros_image_pipeline` on a Jetson or GPU is as painless a transition as possible.
+
+> **Note**: Some image pre-processing functions use specialized hardware engines, which offload the GPU to make more compute available for other tasks.
+
+<div align="center"><img src="resources/isaac_ros_image_pipeline_nodegraph.png" width="750"/></div>
+
+Rectify corrects for lens distortion from the received camera sensor message. The rectified image is resized to the input resolution for disparity, using a crop before resizing to maintain image aspect ratio. The image is color space converted to YUV from RGB using the luma channel (the Y in YUV) to compute disparity using [SGM](https://en.wikipedia.org/wiki/Semi-global_matching). This common graph of nodes can be perfomed without the CPU processing a single pixel using `isaac_ros_image_pipeline`; in comparison, using `image_pipeline`, the CPU would process each pixel ~3 times.  
+
+The Isaac ROS Image Pipeline metapackage offloads the CPU from common image processing tasks so it can perform robotics functions best suited for the CPU.
+
+### Isaac ROS NITROS Acceleration
+
+This package is powered by [NVIDIA Isaac Transport for ROS (NITROS)](https://developer.nvidia.com/blog/improve-perception-performance-for-ros-2-applications-with-nvidia-isaac-transport-for-ros/), which leverages type adaptation and negotiation to optimize message formats and dramatically accelerate communication between participating nodes.
+
+## Performance
+
+The following table summarizes the per-platform performance statistics of sample graphs that use this package, with links included to the full benchmark output. These benchmark configurations are taken from the [Isaac ROS Benchmark](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark#list-of-isaac-ros-benchmarks) collection, based on the [`ros2_benchmark`](https://github.com/NVIDIA-ISAAC-ROS/ros2_benchmark) framework.
+
+| Sample Graph                                                                                                                              | Input Size | AGX Orin                                                                                                                                      | Orin NX                                                                                                                                       | Orin Nano 8GB                                                                                                                                       | x86_64 w/ RTX 3060 Ti                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Rectify Node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/scripts//isaac_ros_rectify_node.py)              | 1080p      | [875 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rectify_node-agx_orin.json)<br>1.8 ms   | [479 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rectify_node-orin_nx.json)<br>3.8 ms    | [333 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rectify_node-orin_nano_8gb.json)<br>4.0 ms    | [1540 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rectify_node-x86_64_rtx_3060Ti.json)<br>0.37 ms  |
+| [Stereo Disparity Node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/scripts//isaac_ros_disparity_node.py)   | 1080p      | [151 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_node-agx_orin.json)<br>9.0 ms | [73.7 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_node-orin_nx.json)<br>14 ms  | [51.6 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_node-orin_nano_8gb.json)<br>22 ms  | [451 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_node-x86_64_rtx_3060Ti.json)<br>2.9 ms  |
+| [Stereo Disparity Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/scripts//isaac_ros_disparity_graph.py) | 1080p      | [141 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_graph-agx_orin.json)<br>10 ms | [72.0 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_graph-orin_nx.json)<br>16 ms | [48.7 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_graph-orin_nano_8gb.json)<br>24 ms | [425 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_disparity_graph-x86_64_rtx_3060Ti.json)<br>3.6 ms |
 
 ## Table of Contents
 
 - [Isaac ROS Image Pipeline](#isaac-ros-image-pipeline)
   - [Overview](#overview)
+    - [Isaac ROS NITROS Acceleration](#isaac-ros-nitros-acceleration)
+  - [Performance](#performance)
   - [Table of Contents](#table-of-contents)
   - [Latest Update](#latest-update)
-  - [Performance](#performance)
   - [Supported Platforms](#supported-platforms)
     - [Docker](#docker)
     - [Package Dependencies](#package-dependencies)
@@ -21,7 +44,7 @@ This metapackage offers similar functionality as the standard, CPU-based [`image
     - [Additional Examples](#additional-examples)
     - [Replacing `image_pipeline` with `isaac_ros_image_pipeline`](#replacing-image_pipeline-with-isaac_ros_image_pipeline)
   - [Supported Packages](#supported-packages)
-  - [ROS2 Package API](#ros2-package-api)
+  - [ROS 2 Package API](#ros-2-package-api)
     - [`isaac_ros_image_proc`](#isaac_ros_image_proc)
       - [Overview](#overview-1)
       - [Available Components](#available-components)
@@ -37,35 +60,24 @@ This metapackage offers similar functionality as the standard, CPU-based [`image
 
 ## Latest Update
 
-Update 2022-10-19: Updated OSS licensing
-
-## Performance
-
-The following are the benchmark performance results of Image_Proc Nodes and pipeline in this package, by supported platform:
-
-| Pipeline              | AGX Orin           | Orin Nano          | x86_64 w/ RTX 3060 Ti |
-| --------------------- | ------------------ | ------------------ | --------------------- |
-| Disparity Node (540p) | 144 fps <br> 7.6ms | 52 fps <br> 20ms   | 380 fps <br> 3.1ms    |
-| Rectify Node (1080p)  | 730 fps <br> 1.5ms | 330 fps <br> 3.1ms | 900 fps <br> 0.4ms    |
-
-These data have been collected per the methodology described [here](https://github.com/NVIDIA-ISAAC-ROS/.github/blob/main/profile/performance-summary.md#methodology).
+Update 2023-04-05: Source available GXF extensions
 
 ## Supported Platforms
 
-This package is designed and tested to be compatible with ROS2 Humble running on [Jetson](https://developer.nvidia.com/embedded-computing) or an x86_64 system with an NVIDIA GPU.
+This package is designed and tested to be compatible with ROS 2 Humble running on [Jetson](https://developer.nvidia.com/embedded-computing) or an x86_64 system with an NVIDIA GPU.
 
-> **Note**: Versions of ROS2 earlier than Humble are **not** supported. This package depends on specific ROS2 implementation features that were only introduced beginning with the Humble release.
+> **Note**: Versions of ROS 2 earlier than Humble are **not** supported. This package depends on specific ROS 2 implementation features that were only introduced beginning with the Humble release.
 
-| Platform | Hardware                                                                                                                                                                                                 | Software                                                                                                             | Notes                                                                                                                                                                                   |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/) <br> [Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.0.2](https://developer.nvidia.com/embedded/jetpack)                                                       | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
-| x86_64   | NVIDIA GPU                                                                                                                                                                                               | [Ubuntu 20.04+](https://releases.ubuntu.com/20.04/) <br> [CUDA 11.6.1+](https://developer.nvidia.com/cuda-downloads) |
+| Platform | Hardware                                                                                                                                                                                                 | Software                                                                                                           | Notes                                                                                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/) <br> [Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.1.1](https://developer.nvidia.com/embedded/jetpack)                                                     | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
+| x86_64   | NVIDIA GPU                                                                                                                                                                                               | [Ubuntu 20.04+](https://releases.ubuntu.com/20.04/) <br> [CUDA 11.8+](https://developer.nvidia.com/cuda-downloads) |
 
 ### Docker
 
 To simplify development, we strongly recommend leveraging the Isaac ROS Dev Docker images by following [these steps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/dev-env-setup.md). This will streamline your development environment setup with the correct versions of dependencies on both Jetson and x86_64 platforms.
 
-> **Note:** All Isaac ROS Quickstarts, tutorials, and examples have been designed with the Isaac ROS Docker images as a prerequisite.
+> **Note**: All Isaac ROS Quickstarts, tutorials, and examples have been designed with the Isaac ROS Docker images as a prerequisite.
 >
 ### Package Dependencies
 
@@ -137,7 +149,7 @@ To simplify development, we strongly recommend leveraging the Isaac ROS Dev Dock
     ros2 run image_view image_view --ros-args -r image:=image_rect_color  
     ```
 
-> **Note:** To build the RealSense camera package for Humble, please refer to the section [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/troubleshooting.md#realsense-driver-doesnt-work-with-ros2-humble).
+> **Note**: To build the RealSense camera package for Humble, please refer to the section [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/troubleshooting.md#realsense-driver-doesnt-work-with-ros2-humble).
 >
 > Other supported cameras can be found [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_argus_camera/blob/main/README.md#reference-cameras).
 >
@@ -155,7 +167,7 @@ To continue exploring the Image Pipeline package, check out the following sugges
 ### Replacing `image_pipeline` with `isaac_ros_image_pipeline`
 
 1. Add a dependency on `isaac_ros_image_pipeline` to `your_package/package.xml` and `your_package/CMakeLists.txt`. If all desired packages under an existing `image_pipeline` dependency have Isaac ROS alternatives (see **Supported Packages**), then the original `image_pipeline` dependency may be removed entirely.
-2. Change the package and plugin names in any `*.launch.py` launch files to use `[package name]` and `nvidia::isaac_ros::image_proc::[component_name]` respectively. For a list of all packages, see **Supported Packages**. For a list of all ROS2 Components made available, see the per-package detailed documentation below.
+2. Change the package and plugin names in any `*.launch.py` launch files to use `[package name]` and `nvidia::isaac_ros::image_proc::[component_name]` respectively. For a list of all packages, see **Supported Packages**. For a list of all ROS 2 Components made available, see the per-package detailed documentation below.
 
 ## Supported Packages
 
@@ -172,7 +184,7 @@ At this time, the packages under the standard `image_pipeline` have the followin
 | `image_view`         | Continue using existing package   |
 | `image_rotate`       | Continue using existing package   |
 
-## ROS2 Package API
+## ROS 2 Package API
 
 ### `isaac_ros_image_proc`
 
@@ -182,14 +194,14 @@ The `isaac_ros_image_proc` package offers functionality for rectifying/undistort
 
 #### Available Components
 
-| Component                  | Topics Subscribed                                   | Topics Published                                                | Parameters                                                                                                                                                                           |
-| -------------------------- | --------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ImageFormatConverterNode` | `image_raw`, `camera_info`: The input camera stream | `image`: The converted image                                    | `encoding_desired`: Target encoding to convert to.                                                                                                                                   |  |
-| `RectifyNode`              | `image_raw`, `camera_info`: The input camera stream | `image_rect`, `camera_info_rect`: The rectified camera stream   | `output_height`: The absolute height to resize to <br> `output_width`: The absolute width to resize to <br>  `keep_aspect_ratio`: The flag to keep the aspect_ratio when set to true |  |
-| `ResizeNode`               | `image`, `camera_info`: The input camera stream     | `resize/image`, `resize/camera_info`: The resized camera stream | `output_height`: The absolute height to resize to <br> `output_width`: The absolute width to resize to                                                                               |
-| `ImageFlipNode`            | `image`: The input image data                       | `image_flipped`: The flipped image                              | `flip_mode`: Supports 3 modes - `HORIZONTAL`, `VERTICAL`, and `BOTH`                                                                                                                 |
+| Component                  | Topics Subscribed                                   | Topics Published                                                | Parameters                                                                                                                                                                                         |
+| -------------------------- | --------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ImageFormatConverterNode` | `image_raw`, `camera_info`: The input camera stream | `image`: The converted image                                    | `encoding_desired`: Target encoding to convert to.                                                                                                                                                 |  |
+| `RectifyNode`              | `image_raw`, `camera_info`: The input camera stream | `image_rect`, `camera_info_rect`: The rectified camera stream   | `output_height`: The absolute height to resize to <br> `output_width`: The absolute width to resize to <br>  `keep_aspect_ratio`: The flag to keep the aspect_ratio when set to true               |  |
+| `ResizeNode`               | `image`, `camera_info`: The input camera stream     | `resize/image`, `resize/camera_info`: The resized camera stream | `output_height`: The absolute height to resize to <br> `output_width`: The absolute width to resize to <br> `num_blocks`: The number of pre-allocated memory blocks, should not be less than `40`. |
+| `ImageFlipNode`            | `image`: The input image data                       | `image_flipped`: The flipped image                              | `flip_mode`: Supports 3 modes - `HORIZONTAL`, `VERTICAL`, and `BOTH`                                                                                                                               |
 
-**Limitation:** Image proc nodes require even number dimensions for images.
+**Limitation**: Image proc nodes require even number dimensions for images.
 
 ### `isaac_ros_stereo_image_proc`
 
@@ -236,6 +248,7 @@ admin@workstation:/workspaces/isaac_ros-dev$  ros2 launch realsense2_camera rs_l
 
 | Date       | Changes                                                                                                                                                    |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2023-04-05 | Source available GXF extensions                                                                                                                            |
 | 2022-10-19 | Updated OSS licensing                                                                                                                                      |
 | 2022-08-31 | Image flip support and update to be compatible with JetPack 5.0.2                                                                                          |
 | 2022-06-30 | Migrated to NITROS based implementation                                                                                                                    |
@@ -244,4 +257,4 @@ admin@workstation:/workspaces/isaac_ros-dev$  ros2 launch realsense2_camera rs_l
 
 ## References
 
-[1] D. Scharstein, H. Hirschmüller, Y. Kitajima, G. Krathwohl, N. Nesic, X. Wang, and P. Westling. [High-resolution stereo datasets with subpixel-accurate ground truth](http://www.cs.middlebury.edu/~schar/papers/datasets-gcpr2014.pdf). In German Conference on Pattern Recognition (GCPR 2014), Münster, Germany, September 2014.
+\[1\] D. Scharstein, H. Hirschmüller, Y. Kitajima, G. Krathwohl, N. Nesic, X. Wang, and P. Westling. [High-resolution stereo datasets with subpixel-accurate ground truth](http://www.cs.middlebury.edu/~schar/papers/datasets-gcpr2014.pdf). In German Conference on Pattern Recognition (GCPR 2014), Münster, Germany, September 2014.

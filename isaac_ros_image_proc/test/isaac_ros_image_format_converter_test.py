@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ ENCODING_DESIRED = 'bgr8'
 
 @pytest.mark.rostest
 def generate_test_description():
-    """Generate launch description with all ROS2 nodes for testing."""
+    """Generate launch description with all ROS 2 nodes for testing."""
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
