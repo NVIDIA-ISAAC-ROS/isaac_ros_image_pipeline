@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -161,6 +161,8 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
                 xyz_error = 0
                 rgb_error = 0
                 n = 0
+                nan_count_isaac_ros = 0
+                nan_count_ref = 0
                 for isaac_ros_pt, ref_pt in zip(isaac_ros_pts, ref_pts):
                     # Unpack array to avoid 0-d and type inference issues
                     isaac_ros_pt = np.array(
@@ -168,6 +170,10 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
                     ref_pt = np.array([ref_pt[0], ref_pt[1], ref_pt[2], ref_pt[3]])
 
                     if np.any(np.isnan(isaac_ros_pt)) or np.any(np.isnan(ref_pt)):
+                        if(np.any(np.isnan(isaac_ros_pt))):
+                            nan_count_isaac_ros += 1
+                        if(np.any(np.isnan(ref_pt))):
+                            nan_count_ref += 1
                         continue
 
                     xyz_error += np.sum(np.square(isaac_ros_pt[:3] - ref_pt[:3]))
@@ -181,12 +187,17 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
                 xyz_error = xyz_error / n
                 self.node.get_logger().info(f'XYZ Error: {xyz_error}')
                 self.node.get_logger().info(f'RGB Error: {rgb_error}')
+                self.node.get_logger().info(f'nan_count_isaac_ros: {nan_count_isaac_ros}')
+                self.node.get_logger().info(f'nan_count_ref: {nan_count_ref}')
 
                 XYZ_ERROR_THRESHOLD = 1e-6  # Units in mm
                 self.assertLess(xyz_error, XYZ_ERROR_THRESHOLD)
 
                 # Point coloring is determined purely by input image, so should be exactly the same
                 self.assertEqual(rgb_error, 0)
+
+                # Nan points count should be the same
+                self.assertEqual(nan_count_isaac_ros, nan_count_ref)
         finally:
             self.node.destroy_subscription(isaac_ros_sub)
             self.node.destroy_subscription(ref_sub)

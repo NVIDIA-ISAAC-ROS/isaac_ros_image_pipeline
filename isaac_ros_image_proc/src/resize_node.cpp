@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,10 +57,10 @@ constexpr char APP_YAML_FILENAME[] = "config/nitros_resize_node.yaml";
 constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
 
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
-  {"isaac_ros_nitros", "gxf/std/libgxf_std.so"},
-  {"isaac_ros_nitros", "gxf/cuda/libgxf_cuda.so"},
-  {"isaac_ros_nitros", "gxf/libgxf_message_compositor.so"},
-  {"isaac_ros_nitros", "gxf/tensorops/libgxf_tensorops.so"},
+  {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
+  {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
+  {"isaac_ros_gxf", "gxf/lib/libgxf_message_compositor.so"},
+  {"isaac_ros_image_proc", "gxf/lib/image_proc/libgxf_tensorops.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
@@ -124,6 +124,7 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
     PACKAGE_NAME),
   output_width_(declare_parameter<int64_t>("output_width", 1080)),
   output_height_(declare_parameter<int64_t>("output_height", 720)),
+  num_blocks_(declare_parameter<int64_t>("num_blocks", 40)),
   keep_aspect_ratio_(static_cast<bool>(declare_parameter<bool>("keep_aspect_ratio", false)))
 {
   RCLCPP_DEBUG(get_logger(), "[ResizeNode] Constructor");
@@ -158,6 +159,12 @@ void ResizeNode::postLoadGraphCallback()
   getNitrosContext().setParameterBool(
     "imageResizer", "nvidia::cvcore::tensor_ops::Resize", "keep_aspect_ratio",
     keep_aspect_ratio_);
+
+  // The minimum number of memory blocks is set based on the receiver queue capacity
+  uint64_t num_blocks = std::max(static_cast<int>(num_blocks_), 40);
+  getNitrosContext().setParameterUInt64(
+    "imageResizer", "nvidia::gxf::BlockMemoryPool", "num_blocks",
+    num_blocks);
 
   RCLCPP_DEBUG(
     get_logger(),

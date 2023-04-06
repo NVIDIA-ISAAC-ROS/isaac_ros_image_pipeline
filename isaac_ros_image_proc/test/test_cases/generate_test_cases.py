@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tool to generate test cases for the isaac_ros_image_proc ROS2 package."""
+"""Tool to generate test cases for the isaac_ros_image_proc ROS 2 package."""
 
 import os
 from pathlib import Path
@@ -164,9 +164,9 @@ class TestCaseGenerator:
         Parameters
         ----------
         image_raw : Image
-            The input ROS2 Image message to send
+            The input ROS 2 Image message to send
         camera_info : CameraInfo
-            The input ROS2 Camera Info message to send
+            The input ROS 2 Camera Info message to send
         test_folder : Path
             The test case folder to save the ground truth outputs to
 

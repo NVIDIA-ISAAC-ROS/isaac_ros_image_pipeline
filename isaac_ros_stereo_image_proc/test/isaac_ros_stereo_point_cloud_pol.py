@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,6 +90,7 @@ class IsaacROSPointCloudTest(IsaacROSBaseTest):
         try:
             image_left = JSONConversion.load_image_from_json(
                 test_folder / 'image_left.json')
+            image_left.header.frame_id = 'left_cam'
 
             disparity_image = DisparityImage()
             disp_img = cv2.imread(os.path.join(

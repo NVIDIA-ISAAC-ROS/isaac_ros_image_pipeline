@@ -155,7 +155,7 @@ components:
   parameters:
     transmitter: data_transmitter
     min_size: 1
-- name: pool
+- name: allocator
   type: nvidia::gxf::BlockMemoryPool
   parameters:
     storage_type: 1
@@ -163,7 +163,7 @@ components:
     num_blocks: 40
 - type: nvidia::isaac_ros::point_cloud::PointCloud
   parameters:
-    pool: pool
+    allocator: allocator
     left_rect_image_receiver: rgb_receiver
     disparity_image_receiver: disparity_receiver
     left_cam_info_receiver: left_cam_receiver
