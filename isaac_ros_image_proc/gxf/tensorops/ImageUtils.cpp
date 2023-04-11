@@ -99,6 +99,7 @@ gxf::Expected<::cvcore::CameraDistortionType> GetCameraDistortionType(gxf::Disto
   switch (type) {
   case gxf::DistortionType::Perspective:
     return ::cvcore::CameraDistortionType::NONE;
+  case gxf::DistortionType::Brown:
   case gxf::DistortionType::Polynomial:
     return ::cvcore::CameraDistortionType::Polynomial;
   case gxf::DistortionType::FisheyeEquidistant:
