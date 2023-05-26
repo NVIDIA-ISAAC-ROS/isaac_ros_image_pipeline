@@ -25,105 +25,121 @@ endif()
 find_package(CUDAToolkit)
 find_package(vpi REQUIRED)
 find_package(GXF ${ISAAC_ROS_GXF_VERSION} MODULE REQUIRED
+    core
     cuda
     multimedia
 )
 
 # Create extension
 add_library(gxf_tensorops SHARED
-  CameraModel.cpp
-  CameraModel.hpp
-  CMakeLists.txt
-  ConvertColorFormat.cpp
-  ConvertColorFormat.hpp
-  CropAndResize.cpp
-  CropAndResize.hpp
-  Frame3D.cpp
-  Frame3D.hpp
-  ImageAdapter.cpp
-  ImageAdapter.hpp
-  ImageUtils.cpp
-  ImageUtils.hpp
-  InterleavedToPlanar.cpp
-  InterleavedToPlanar.hpp
-  Normalize.cpp
-  Normalize.hpp
-  Reshape.cpp
-  Reshape.hpp
-  Resize.cpp
-  Resize.hpp
-  TensorOperator.cpp
-  TensorOperator.hpp
-  TensorOps.cpp
-  TensorStream.cpp
-  TensorStream.hpp
-  Undistort.cpp
-  Undistort.hpp
-  detail/ImageAdapterTensorImpl.cpp
-  detail/ImageAdapterTensorImpl.hpp
-  detail/ImageAdapterVideoBufferImpl.cpp
-  detail/ImageAdapterVideoBufferImpl.hpp
+  extensions/tensorops/tensorops.cpp
+  extensions/tensorops/components/CameraModel.cpp
+  extensions/tensorops/components/CameraModel.hpp
+  extensions/tensorops/components/ConvertColorFormat.cpp
+  extensions/tensorops/components/ConvertColorFormat.hpp
+  extensions/tensorops/components/CropAndResize.cpp
+  extensions/tensorops/components/CropAndResize.hpp
+  extensions/tensorops/components/Frame3D.cpp
+  extensions/tensorops/components/Frame3D.hpp
+  extensions/tensorops/components/ImageAdapter.cpp
+  extensions/tensorops/components/ImageAdapter.hpp
+  extensions/tensorops/components/ImageUtils.cpp
+  extensions/tensorops/components/ImageUtils.hpp
+  extensions/tensorops/components/InterleavedToPlanar.cpp
+  extensions/tensorops/components/InterleavedToPlanar.hpp
+  extensions/tensorops/components/Normalize.cpp
+  extensions/tensorops/components/Normalize.hpp
+  extensions/tensorops/components/Reshape.cpp
+  extensions/tensorops/components/Reshape.hpp
+  extensions/tensorops/components/Resize.cpp
+  extensions/tensorops/components/Resize.hpp
+  extensions/tensorops/components/TensorOperator.cpp
+  extensions/tensorops/components/TensorOperator.hpp
+  extensions/tensorops/components/TensorStream.cpp
+  extensions/tensorops/components/TensorStream.hpp
+  extensions/tensorops/components/Undistort.cpp
+  extensions/tensorops/components/Undistort.hpp
+  extensions/tensorops/components/detail/ImageAdapterTensorImpl.cpp
+  extensions/tensorops/components/detail/ImageAdapterTensorImpl.hpp
+  extensions/tensorops/components/detail/ImageAdapterVideoBufferImpl.cpp
+  extensions/tensorops/components/detail/ImageAdapterVideoBufferImpl.hpp
 )
 
-target_include_directories(gxf_tensorops PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/cvcore/include)
+target_include_directories(gxf_tensorops PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(cvcore STATIC
+add_library(corelib STATIC
   # Tensorops
-  cvcore/src/tensor_ops/ArithmeticOperations.cpp
-  cvcore/src/tensor_ops/BBoxUtils.cpp
-  cvcore/src/tensor_ops/ColorConversions.cpp
-  cvcore/src/tensor_ops/DBScan.cpp
-  cvcore/src/tensor_ops/Errors.cpp
-  cvcore/src/tensor_ops/Filters.cpp
-  cvcore/src/tensor_ops/Filters.h
-  cvcore/src/tensor_ops/FusedOperations.cpp
-  cvcore/src/tensor_ops/GeometryTransforms.cpp
-  cvcore/src/tensor_ops/IImageWarp.cpp
-  cvcore/src/tensor_ops/NppUtils.cpp
-  cvcore/src/tensor_ops/NppUtils.h
-  cvcore/src/tensor_ops/OneEuroFilter.cpp
-  cvcore/src/tensor_ops/TensorOperators.cpp
-
-  # Tensorops/VPI
-  cvcore/src/tensor_ops/vpi/VPIColorConvertImpl.cpp
-  cvcore/src/tensor_ops/vpi/VPIColorConvertImpl.h
-  cvcore/src/tensor_ops/vpi/VPIEnumMapping.h
-  cvcore/src/tensor_ops/vpi/VPIImageWarp.h
-  cvcore/src/tensor_ops/vpi/VPIRemapImpl.cpp
-  cvcore/src/tensor_ops/vpi/VPIRemapImpl.h
-  cvcore/src/tensor_ops/vpi/VPIResizeImpl.cpp
-  cvcore/src/tensor_ops/vpi/VPIResizeImpl.h
-  cvcore/src/tensor_ops/vpi/VPIStatusMapping.cpp
-  cvcore/src/tensor_ops/vpi/VPIStatusMapping.h
-  cvcore/src/tensor_ops/vpi/VPIStereoDisparityEstimatorImpl.cpp
-  cvcore/src/tensor_ops/vpi/VPIStereoDisparityEstimatorImpl.h
-  cvcore/src/tensor_ops/vpi/VPITensorOperators.cpp
-  cvcore/src/tensor_ops/vpi/VPITensorOperators.h
-
-  # Core
-  cvcore/src/core/cvcore/Array.cpp
-  cvcore/src/core/cvcore/Dummy.cu
-  cvcore/src/core/cvcore/MathTypes.cpp
-  cvcore/src/core/cvcore/Tensor.cpp
-  cvcore/src/core/utility/CVError.cpp
-  cvcore/src/core/utility/Instrumentation.cpp
-  cvcore/src/core/utility/Memory.cpp
-  cvcore/src/core/utility/ProfileUtils.cpp
+  extensions/tensorops/core/ArithmeticOperations.cpp
+  extensions/tensorops/core/BBoxUtils.cpp
+  extensions/tensorops/core/ColorConversions.cpp
+  extensions/tensorops/core/DBScan.cpp
+  extensions/tensorops/core/Errors.cpp
+  extensions/tensorops/core/Filters.cpp
+  extensions/tensorops/core/FusedOperations.cpp
+  extensions/tensorops/core/GeometryTransforms.cpp
+  extensions/tensorops/core/IImageWarp.cpp
+  extensions/tensorops/core/OneEuroFilter.cpp
+  extensions/tensorops/core/TensorOperators.cpp
+  extensions/tensorops/core/VPIColorConvertImpl.cpp
+  extensions/tensorops/core/VPIRemapImpl.cpp
+  extensions/tensorops/core/VPIResizeImpl.cpp
+  extensions/tensorops/core/VPIStatusMapping.cpp
+  extensions/tensorops/core/VPIStereoDisparityEstimatorImpl.cpp
+  extensions/tensorops/core/VPITensorOperators.cpp
+  extensions/tensorops/core/BBoxUtils.h
+  extensions/tensorops/core/DBScan.h
+  extensions/tensorops/core/Errors.h
+  extensions/tensorops/core/Filters.h
+  extensions/tensorops/core/IImageWarp.h
+  extensions/tensorops/core/ITensorOperatorContext.h
+  extensions/tensorops/core/ITensorOperatorStream.h
+  extensions/tensorops/core/ImageUtils.h
+  extensions/tensorops/core/OneEuroFilter.h
+  extensions/tensorops/core/TensorOperators.h
+  extensions/tensorops/core/VPIColorConvertImpl.h
+  extensions/tensorops/core/VPIEnumMapping.h
+  extensions/tensorops/core/VPIImageWarp.h
+  extensions/tensorops/core/VPIRemapImpl.h
+  extensions/tensorops/core/VPIResizeImpl.h
+  extensions/tensorops/core/VPIStatusMapping.h
+  extensions/tensorops/core/VPIStereoDisparityEstimatorImpl.h
+  extensions/tensorops/core/VPITensorOperators.h
+  extensions/tensorops/core/NppUtils.cpp
+  extensions/tensorops/core/NppUtils.h
+  extensions/tensorops/core/Filters.cpp
+  extensions/tensorops/core/Filters.h
+  extensions/tensorops/core/Array.cpp
+  extensions/tensorops/core/CVError.cpp
+  extensions/tensorops/core/MathTypes.cpp
+  extensions/tensorops/core/Memory.cpp
+  extensions/tensorops/core/Tensor.cpp
+  extensions/tensorops/core/Array.h
+  extensions/tensorops/core/BBox.h
+  extensions/tensorops/core/CVError.h
+  extensions/tensorops/core/CameraModel.h
+  extensions/tensorops/core/ComputeEngine.h
+  extensions/tensorops/core/Core.h
+  extensions/tensorops/core/Image.h
+  extensions/tensorops/core/MathTypes.h
+  extensions/tensorops/core/Memory.h
+  extensions/tensorops/core/Tensor.h
+  extensions/tensorops/core/Traits.h
 )
 
-target_include_directories(cvcore PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/cvcore/include)
-target_compile_definitions(cvcore PRIVATE -DENABLE_VPI=1)
+target_include_directories(corelib PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR})
+# target_compile_definitions(corelib PRIVATE -DENABLE_VPI=1)
 
-target_link_libraries(cvcore PUBLIC
-  CUDA::cudart
-  CUDA::nppc
-  CUDA::nppial
-  CUDA::nppicc
-  CUDA::nppidei
-  CUDA::nppif
-  CUDA::nppig
-  CUDA::nppisu
-  vpi
+target_link_libraries(corelib
+  PUBLIC
+    CUDA::cudart
+    CUDA::nppc
+    CUDA::nppial
+    CUDA::nppicc
+    CUDA::nppidei
+    CUDA::nppif
+    CUDA::nppig
+    CUDA::nppisu
+    vpi
 )
 
 target_link_libraries(gxf_tensorops
@@ -132,5 +148,5 @@ target_link_libraries(gxf_tensorops
     GXF::multimedia
     yaml-cpp
   PRIVATE
-    cvcore
+    corelib
 )

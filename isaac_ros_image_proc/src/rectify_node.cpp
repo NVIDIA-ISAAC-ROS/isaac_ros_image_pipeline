@@ -46,11 +46,11 @@ constexpr char INPUT_COMPONENT_KEY[] = "input_compositor/image_in";
 constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char INPUT_TOPIC_NAME[] = "image_raw";
 
-constexpr char OUTPUT_COMPONENT_KEY[] = "image_vault/vault";
+constexpr char OUTPUT_COMPONENT_KEY[] = "image_sink/sink";
 constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char OUTPUT_TOPIC_NAME[] = "image_rect";
 
-constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camerainfo_vault/vault";
+constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camerainfo_sink/sink";
 constexpr char OUTPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char OUTPUT_CAM_TOPIC_NAME[] = "camera_info_rect";
 
@@ -66,7 +66,8 @@ const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
 };
-const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
+const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {
+};
 const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
   "config/namespace_injector_rule_rectify.yaml",
 };
@@ -141,14 +142,14 @@ void RectifyNode::preLoadGraphCallback()
   std::string w = "[" + std::to_string(output_width_) + "]";
   NitrosNode::preLoadGraphSetParameter(
     "rectifier",
-    "nvidia::cvcore::tensor_ops::StreamUndistort",
+    "nvidia::isaac::tensor_ops::StreamUndistort",
     "regions_width",
     w);
 
   std::string h = "[" + std::to_string(output_height_) + "]";
   NitrosNode::preLoadGraphSetParameter(
     "rectifier",
-    "nvidia::cvcore::tensor_ops::StreamUndistort",
+    "nvidia::isaac::tensor_ops::StreamUndistort",
     "regions_height",
     h);
   RCLCPP_DEBUG(
@@ -164,9 +165,9 @@ void RectifyNode::postLoadGraphCallback()
     "[RectifyNode] postLoadGraphCallback().");
 
   const gxf::optimizer::ComponentInfo component = {
-    "nvidia::gxf::Vault",  // component_type_name
-    "vault",               // component_name
-    "image_vault"          // entity_name
+    "nvidia::isaac_ros::MessageRelay",  // component_type_name
+    "sink",                             // component_name
+    "image_sink"                        // entity_name
   };
   std::string image_format = getFinalDataFormat(component);
   uint64_t block_size = calculate_image_size(image_format, output_width_, output_height_);

@@ -139,10 +139,10 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
 
                 rclpy.spin_once(self.node, timeout_sec=(0.1))
 
-                if all([
+                if all(
                     len(messages) >= 1
                     for messages in received_messages.values()
-                ]):
+                ):
                     done = True
                     break
             self.assertTrue(done)

@@ -1,6 +1,6 @@
 %YAML 1.2
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ components:
     transmitter: data_transmitter
     min_size: 1
 - name: input_camera
-  type: nvidia::cvcore::tensor_ops::CameraModel
+  type: nvidia::isaac::tensor_ops::CameraModel
   parameters:
     distortion_type: "FisheyeEquidistant"
     distortion_coefficients: [0, 0, 0, 0,
@@ -82,7 +82,7 @@ components:
     principle_point: [0, 0]
     skew_value: 0.0
 - name: output_camera
-  type: nvidia::cvcore::tensor_ops::CameraModel
+  type: nvidia::isaac::tensor_ops::CameraModel
   parameters:
     distortion_type: "FisheyeEquidistant"
     distortion_coefficients: [0, 0, 0, 0,
@@ -91,7 +91,7 @@ components:
     principle_point: [0, 0]
     skew_value: 0.0
 - name: reference_frame
-  type: nvidia::cvcore::tensor_ops::Frame3D
+  type: nvidia::isaac::tensor_ops::Frame3D
   parameters:
     rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1]
     translation: [0, 0, 0]
@@ -102,7 +102,7 @@ components:
     block_size: 7372800
     num_blocks: 40
 - name: undistort_algo
-  type: nvidia::cvcore::tensor_ops::StreamUndistort
+  type: nvidia::isaac::tensor_ops::StreamUndistort
   parameters:
     input_camera_model: input_camera
     reference_frame: reference_frame
@@ -126,7 +126,7 @@ components:
 - name: data_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 1
+    capacity: 2
     policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
@@ -157,7 +157,7 @@ components:
     image_tx: image_transmitter
     camera_model_tx: camera_model_transmitter
 ---
-name: image_vault
+name: image_sink
 components:
 - name: signal
   type: nvidia::gxf::DoubleBufferReceiver
@@ -168,14 +168,12 @@ components:
   parameters:
     receiver: signal
     min_size: 1
-- name: vault
-  type: nvidia::gxf::Vault
+- name: sink
+  type: nvidia::isaac_ros::MessageRelay
   parameters:
     source: signal
-    max_waiting_count: 1
-    drop_waiting: false
 ---
-name: camerainfo_vault
+name: camerainfo_sink
 components:
 - name: signal
   type: nvidia::gxf::DoubleBufferReceiver
@@ -186,22 +184,20 @@ components:
   parameters:
     receiver: signal
     min_size: 1
-- name: vault
-  type: nvidia::gxf::Vault
+- name: sink
+  type: nvidia::isaac_ros::MessageRelay
   parameters:
     source: signal
-    max_waiting_count: 1
-    drop_waiting: false
 ---
 name: resource
 components:
 - name: stream
-  type: nvidia::cvcore::tensor_ops::TensorStream
+  type: nvidia::isaac::tensor_ops::TensorStream
   parameters:
     backend_type: "VPI"
     engine_type: "GPU"
 - name: adapter
-  type: nvidia::cvcore::tensor_ops::ImageAdapter
+  type: nvidia::isaac::tensor_ops::ImageAdapter
   parameters:
     message_type: "VideoBuffer"
 ---
@@ -217,17 +213,22 @@ components:
 - type: nvidia::gxf::Connection
   parameters:
     source: splitter/image_transmitter
-    target: image_vault/signal
+    target: image_sink/signal
 - type: nvidia::gxf::Connection
   parameters:
     source: splitter/camera_model_transmitter
-    target: camerainfo_vault/signal
+    target: camerainfo_sink/signal
 ---
 name: utils
 components:
 - name: clock
   type: nvidia::gxf::RealtimeClock
-- type: nvidia::gxf::GreedyScheduler
+- type: nvidia::gxf::MultiThreadScheduler
   parameters:
     clock: clock
     stop_on_deadlock: false
+    check_recession_period_ms: 1
+    worker_thread_number: 2
+- type: nvidia::gxf::JobStatistics
+  parameters:
+    clock: clock

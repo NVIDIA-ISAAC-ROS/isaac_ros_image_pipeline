@@ -20,7 +20,7 @@ name: Image Format Converter Namespace Injector Rule
 operation: namespace_injector
 body:
   components:
-    - type: nvidia::cvcore::tensor_ops::ConvertColorFormat
+    - type: nvidia::isaac::tensor_ops::ConvertColorFormat
       path_parameter_keys: [input_adapter, output_adapter]
-    - type: nvidia::cvcore::tensor_ops::StreamConvertColorFormat
+    - type: nvidia::isaac::tensor_ops::StreamConvertColorFormat
       path_parameter_keys: [input_adapter, output_adapter, stream]

@@ -20,5 +20,5 @@ name: Image Resize Namespace Injector Rule
 operation: namespace_injector
 body:
   components:
-    - type: nvidia::cvcore::tensor_ops::Resize
+    - type: nvidia::isaac::tensor_ops::Resize
       path_parameter_keys: [input_adapter, output_adapter]

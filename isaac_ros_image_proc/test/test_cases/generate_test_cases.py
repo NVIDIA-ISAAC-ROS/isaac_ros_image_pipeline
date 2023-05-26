@@ -204,7 +204,7 @@ class TestCaseGenerator:
                 rclpy.spin_once(self.node, timeout_sec=TIMEOUT)
 
                 # If we have received exactly one message on each output topic, break
-                if all([topic in received_images for topic in output_topics]):
+                if all(topic in received_images for topic in output_topics):
                     done = True
                     break
             assert done, "Didn't receive output messages on all subscribers! " \
