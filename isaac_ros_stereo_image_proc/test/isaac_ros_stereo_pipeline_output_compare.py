@@ -148,7 +148,7 @@ class IsaacROSStereoPipelineComparisonTest(IsaacROSBaseTest):
 
                 rclpy.spin_once(self.node, timeout_sec=(0.1))
 
-                if all([len(messages) >= 1 for messages in received_messages.values()]):
+                if all(len(messages) >= 1 for messages in received_messages.values()):
                     done = True
                     break
 

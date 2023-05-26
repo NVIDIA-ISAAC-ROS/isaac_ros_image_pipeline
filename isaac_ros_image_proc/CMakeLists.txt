@@ -75,6 +75,10 @@ install(TARGETS gxf_image_flip DESTINATION share/${PROJECT_NAME}/gxf/lib/image_p
 add_subdirectory(gxf/tensorops)
 install(TARGETS gxf_tensorops DESTINATION share/${PROJECT_NAME}/gxf/lib/image_proc)
 
+# RectifyParamsGenerator
+add_subdirectory(gxf/rectify_params_generator)
+install(TARGETS gxf_rectify_params_generator DESTINATION share/${PROJECT_NAME}/gxf/lib/image_proc)
+
 ### End extensions
 
 if(BUILD_TESTING)
@@ -88,12 +92,14 @@ if(BUILD_TESTING)
   add_launch_test(test/isaac_ros_image_format_converter_grayscale_test.py)
   add_launch_test(test/isaac_ros_image_format_converter_nv24_test.py)
   add_launch_test(test/isaac_ros_rectify_test.py)
+  add_launch_test(test/isaac_ros_rectify_timestamp_match_test.py)
+  add_launch_test(test/isaac_ros_rectify_oss_comparison_test.py)
+  add_launch_test(test/isaac_ros_rectify_stereo_epipolar_test.py)
   add_launch_test(test/isaac_ros_resize_test.py)
   add_launch_test(test/isaac_ros_resize_invalid_test.py)
   add_launch_test(test/isaac_ros_image_flip_180_test.py)
   add_launch_test(test/isaac_ros_image_flip_hori_test.py)
   add_launch_test(test/isaac_ros_image_flip_vert_test.py)
-
 endif()
 
 ament_auto_package(INSTALL_TO_SHARE launch config)

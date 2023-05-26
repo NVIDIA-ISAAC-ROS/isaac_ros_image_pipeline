@@ -35,7 +35,7 @@ constexpr char INPUT_COMPONENT_KEY[] = "image_flip/data_receiver";
 constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_rgb8";
 constexpr char INPUT_TOPIC_NAME[] = "image";
 
-constexpr char OUTPUT_COMPONENT_KEY[] = "vault/vault";
+constexpr char OUTPUT_COMPONENT_KEY[] = "sink/sink";
 constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_rgb8";
 constexpr char OUTPUT_TOPIC_NAME[] = "image_flipped";
 

@@ -20,5 +20,5 @@ name: Image Rectify Namespace Injector Rule
 operation: namespace_injector
 body:
   components:
-    - type: nvidia::cvcore::tensor_ops::StreamUndistort
+    - type: nvidia::isaac::tensor_ops::StreamUndistort
       path_parameter_keys: [input_adapter, output_adapter, stream]

@@ -94,7 +94,7 @@ class IsaacROSImageProcTest(IsaacROSBaseTest):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 # If we have received at least one message on each output topic, break
-                if all([len(received_messages.get(topic, [])) > 0 for topic in output_topics]):
+                if all(len(received_messages.get(topic, [])) > 0 for topic in output_topics):
                     done = True
                     break
 

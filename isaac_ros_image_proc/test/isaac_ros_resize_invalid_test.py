@@ -111,9 +111,9 @@ class IsaacROSResizeInvalidTest(IsaacROSBaseTest):
             self.assertIn('/rosout', received_messages, "Didn't receive output on /rosout topic!")
 
             # Make sure that at least one output log message is a non-empty error
-            self.assertTrue(any([
+            self.assertTrue(any(
                 LoggingSeverity(rosout.level) == LoggingSeverity.ERROR and len(rosout.msg) > 0
-                for rosout in received_messages['/rosout']]),
+                for rosout in received_messages['/rosout']),
                 'No message with non-empty message and Error severity!')
 
             # Make sure no output image was received in the error case

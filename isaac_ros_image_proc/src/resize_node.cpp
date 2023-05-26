@@ -45,11 +45,11 @@ constexpr char INPUT_COMPONENT_KEY[] = "input_compositor/image_in";
 constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char INPUT_TOPIC_NAME[] = "image";
 
-constexpr char OUTPUT_COMPONENT_KEY[] = "image_vault/vault";
+constexpr char OUTPUT_COMPONENT_KEY[] = "image_sink/sink";
 constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char OUTPUT_TOPIC_NAME[] = "resize/image";
 
-constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camerainfo_vault/vault";
+constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camerainfo_sink/sink";
 constexpr char OUTPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char OUTPUT_CAM_TOPIC_NAME[] = "resize/camera_info";
 
@@ -149,15 +149,15 @@ void ResizeNode::postLoadGraphCallback()
 
   // Update resize parameters
   getNitrosContext().setParameterUInt64(
-    "imageResizer", "nvidia::cvcore::tensor_ops::Resize", "output_width",
+    "imageResizer", "nvidia::isaac::tensor_ops::Resize", "output_width",
     (uint64_t)output_width_);
 
   getNitrosContext().setParameterUInt64(
-    "imageResizer", "nvidia::cvcore::tensor_ops::Resize", "output_height",
+    "imageResizer", "nvidia::isaac::tensor_ops::Resize", "output_height",
     (uint64_t)output_height_);
 
   getNitrosContext().setParameterBool(
-    "imageResizer", "nvidia::cvcore::tensor_ops::Resize", "keep_aspect_ratio",
+    "imageResizer", "nvidia::isaac::tensor_ops::Resize", "keep_aspect_ratio",
     keep_aspect_ratio_);
 
   // The minimum number of memory blocks is set based on the receiver queue capacity
@@ -172,9 +172,9 @@ void ResizeNode::postLoadGraphCallback()
     output_width_, output_height_, keep_aspect_ratio_ ? "true" : "false");
 
   const gxf::optimizer::ComponentInfo component = {
-    "nvidia::gxf::Vault",  // component_type_name
-    "vault",               // component_name
-    "image_vault"          // entity_name
+    "nvidia::isaac_ros::MessageRelay",  // component_type_name
+    "sink",                             // component_name
+    "image_sink"                        // entity_name
   };
   std::string image_format = getFinalDataFormat(component);
   uint64_t block_size = calculate_image_size(image_format, output_width_, output_height_);

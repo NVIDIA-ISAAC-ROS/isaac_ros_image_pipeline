@@ -52,7 +52,7 @@ constexpr char INPUT_LEFT_CAMERA_TOPIC_NAME[] = "left/camera_info";
 constexpr char INPUT_RIGHT_CAM_COMPONENT_KEY[] = "sync/right_cam_receiver";
 constexpr char INPUT_RIGHT_CAMERA_TOPIC_NAME[] = "right/camera_info";
 
-constexpr char OUTPUT_COMPONENT_KEY[] = "vault/vault";
+constexpr char OUTPUT_COMPONENT_KEY[] = "sink/sink";
 constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_disparity_image_32FC1";
 constexpr char OUTPUT_TOPIC_NAME[] = "disparity";
 
