@@ -143,7 +143,7 @@ components:
     storage_type: 1
     block_size: 22118400
     num_blocks: 40
-- type: nvidia::isaac_ros::SGMDisparity
+- type: nvidia::isaac::SGMDisparity
   parameters:
     left_image_name: "left_image"
     right_image_name: "right_image"
@@ -155,6 +155,144 @@ components:
     min_disparity: 0
     max_disparity: 64
     backends: "CUDA"
+---
+name: left_camera_info_broadcaster
+components:
+- type: nvidia::gxf::Broadcast
+  parameters:
+    source: camera_info_in
+- name: camera_info_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_info_in
+    min_size: 1
+- name: left_camera_info_out_1
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: left_camera_info_out_1
+    min_size: 1
+- name: left_camera_info_out_2
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: left_camera_info_out_2
+    min_size: 1
+---
+name: right_camera_info_broadcaster
+components:
+- type: nvidia::gxf::Broadcast
+  parameters:
+    source: camera_info_in
+- name: camera_info_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_info_in
+    min_size: 1
+- name: right_camera_info_out_1
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: right_camera_info_out_1
+    min_size: 1
+- name: right_camera_info_out_2
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: right_camera_info_out_2
+    min_size: 1
+---
+name: left_camera_message_compositor
+components:
+- name: video_buffer_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: video_buffer_input
+    min_size: 1
+- name: camera_model_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_model_input
+    min_size: 1
+- name: camera_message_output
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: camera_message_output
+    min_size: 1
+- name: left_camera_message_compositor
+  type: nvidia::isaac::CameraMessageCompositor
+  parameters:
+    video_buffer_input: video_buffer_input
+    camera_model_input: camera_model_input
+    camera_message_output: camera_message_output
+---
+name: right_camera_message_compositor
+components:
+- name: video_buffer_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: video_buffer_input
+    min_size: 1
+- name: camera_model_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_model_input
+    min_size: 1
+- name: camera_message_output
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: camera_message_output
+    min_size: 1
+- name: right_camera_message_compositor
+  type: nvidia::isaac::CameraMessageCompositor
+  parameters:
+    video_buffer_input: video_buffer_input
+    camera_model_input: camera_model_input
+    camera_message_output: camera_message_output
 ---
 name: egress
 components:
@@ -194,7 +332,7 @@ components:
   parameters:
     transmitter: data_transmitter
     min_size: 1
-- type: nvidia::isaac_ros::DisparityCompositor
+- type: nvidia::isaac::DisparityCompositor
   parameters:
     left_camera_model_receiver: left_cam_receiver
     right_camera_model_receiver: right_cam_receiver
@@ -221,27 +359,63 @@ components:
 ---
 name: connections
 components:
-- type: nvidia::gxf::Connection
-  parameters:
-    source: sync/left_image_transmitter
-    target: disparity/data_receiver_left
-- type: nvidia::gxf::Connection
-  parameters:
-    source: sync/right_image_transmitter
-    target: disparity/data_receiver_right
-- type: nvidia::gxf::Connection
+- name: connection_1
+  type: nvidia::gxf::Connection
   parameters:
     source: sync/left_cam_transmitter
-    target: egress/left_cam_receiver
-- type: nvidia::gxf::Connection
+    target: left_camera_info_broadcaster/camera_info_in
+- name: connection_2
+  type: nvidia::gxf::Connection
   parameters:
     source: sync/right_cam_transmitter
+    target: right_camera_info_broadcaster/camera_info_in
+- name: connection_3
+  type: nvidia::gxf::Connection
+  parameters:
+    source: left_camera_message_compositor/camera_message_output
+    target: disparity/data_receiver_left
+- name: connection_4
+  type: nvidia::gxf::Connection
+  parameters:
+    source: right_camera_message_compositor/camera_message_output
+    target: disparity/data_receiver_right
+- name: connection_5
+  type: nvidia::gxf::Connection
+  parameters:
+    source: sync/left_image_transmitter
+    target: left_camera_message_compositor/video_buffer_input
+- name: connection_6
+  type: nvidia::gxf::Connection
+  parameters:
+    source: left_camera_info_broadcaster/left_camera_info_out_1
+    target: left_camera_message_compositor/camera_model_input
+- name: connection_7
+  type: nvidia::gxf::Connection
+  parameters:
+    source: sync/right_image_transmitter
+    target: right_camera_message_compositor/video_buffer_input
+- name: connection_8
+  type: nvidia::gxf::Connection
+  parameters:
+    source: right_camera_info_broadcaster/right_camera_info_out_1
+    target: right_camera_message_compositor/camera_model_input
+- name: connection_9
+  type: nvidia::gxf::Connection
+  parameters:
+    source: left_camera_info_broadcaster/left_camera_info_out_2
+    target: egress/left_cam_receiver
+- name: connection_10
+  type: nvidia::gxf::Connection
+  parameters:
+    source: right_camera_info_broadcaster/right_camera_info_out_2
     target: egress/right_cam_receiver
-- type: nvidia::gxf::Connection
+- name: connection_11
+  type: nvidia::gxf::Connection
   parameters:
     source: disparity/data_transmitter
     target: egress/disparity_in
-- type: nvidia::gxf::Connection
+- name: connection_12
+  type: nvidia::gxf::Connection
   parameters:
     source: egress/data_transmitter
     target: sink/signal

@@ -58,8 +58,7 @@ const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
 };
 const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
 const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
-  "config/namespace_injector_rule_image_format_converter.yaml",
-  "config/image_format_converter_substitution.yaml"
+  "config/namespace_injector_rule_image_format_converter.yaml"
 };
 const std::map<gxf::optimizer::ComponentKey, std::string> COMPATIBLE_DATA_FORMAT_MAP = {
   {INPUT_COMPONENT_KEY, INPUT_DEFAULT_TENSOR_FORMAT},

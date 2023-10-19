@@ -272,31 +272,56 @@ gxf_result_t UndistortBase::doExecute(gxf::Entity& output, gxf::Entity& input, c
     }
     const auto& new_source_intrinsics  = maybe_source_intrinsics.value();
     const auto& new_source_distortions = maybe_source_distortions.value();
+
+    cvcore::tensor_ops::CameraExtrinsics new_extrinsics;
     if (!target_extrinsics_delta) {
-      GXF_LOG_ERROR("Target extrinsics delta is missing from input message");
-      return GXF_FAILURE;
+      auto maybe_source_extrinsics_message = input.get<gxf::Pose3D>("extrinsics");
+      if (!maybe_source_extrinsics_message) {
+        GXF_LOG_ERROR("Camera extrinsics is NOT found.");
+        return GXF_FAILURE;
+      }
+      new_extrinsics =
+        detail::GetExtrinsicsFromMessage(maybe_source_extrinsics_message.value()).value();
+    } else {
+      new_extrinsics = detail::GetExtrinsicsFromMessage(target_extrinsics_delta.value()).value();
     }
-
-    if (!maybe_target_camera_message) {
-      GXF_LOG_ERROR("Target camera message is missing from input message");
-      return GXF_FAILURE;
-    }
-
-    auto new_extrinsics = detail::GetExtrinsicsFromMessage(target_extrinsics_delta.value()).value();
 
     cvcore::tensor_ops::CameraIntrinsics target_camera_intrinsics;
-    auto maybe_target_camera_intrinsics  = detail::GetIntrinsicsFromMessage(
-        maybe_target_camera_message.value());
-    if (!maybe_target_camera_intrinsics) {
-      return GXF_FAILURE;
+    if (!maybe_target_camera_message) {
+      target_camera_intrinsics =
+        detail::GetIntrinsicsFromMessage(maybe_source_camera_message.value()).value();
+      auto new_width  = static_cast<float>(output_shape_.x);
+      auto new_height = static_cast<float>(output_shape_.y);
+
+      // These two parameters (width_scale and height_scale) can be
+      // used to determine a crop or pad regime depending on which dimension to
+      // preserve in the case of keep_aspect ratio. In this case, we assume
+      // always_crop=True, or that we will always use the largest dimension
+      // change.
+      auto width_scale  = new_width / static_cast<float>(input_info_.width);
+      auto height_scale = new_height / static_cast<float>(input_info_.height);
+      auto scale        = std::max({width_scale, height_scale});  // Always crop
+
+      target_camera_intrinsics.m_intrinsics[0][0] =
+          scale * target_camera_intrinsics.m_intrinsics[0][0];
+      target_camera_intrinsics.m_intrinsics[0][1] =
+          scale * target_camera_intrinsics.m_intrinsics[0][1];
+      target_camera_intrinsics.m_intrinsics[1][1] =
+          scale * target_camera_intrinsics.m_intrinsics[1][1];
+      target_camera_intrinsics.m_intrinsics[0][2] =
+          scale * target_camera_intrinsics.m_intrinsics[0][2];
+      target_camera_intrinsics.m_intrinsics[1][2] =
+          scale * target_camera_intrinsics.m_intrinsics[1][2];
+    } else {
+      target_camera_intrinsics =
+        detail::GetIntrinsicsFromMessage(maybe_target_camera_message.value()).value();
     }
-    target_camera_intrinsics = maybe_target_camera_intrinsics.value();
 
     const bool reset = image_warp_ == nullptr ||
-        new_source_intrinsics != input_camera_info_.intrinsic ||
-        new_source_distortions != input_camera_info_.distortion ||
-        new_extrinsics != input_camera_info_.extrinsic ||
-        target_camera_intrinsics != output_camera_intrinsics_;
+      new_source_intrinsics != input_camera_info_.intrinsic ||
+      new_source_distortions != input_camera_info_.distortion ||
+      new_extrinsics != input_camera_info_.extrinsic ||
+      target_camera_intrinsics != output_camera_intrinsics_;
 
     if (reset) {
       input_camera_info_ = {new_source_intrinsics, new_extrinsics, new_source_distortions};

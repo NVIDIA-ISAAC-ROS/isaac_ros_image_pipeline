@@ -114,6 +114,9 @@ constexpr VPIImageFormat ToVpiImageFormat(ImageType value) {
     case RGBA_U8:
         result = VPI_IMAGE_FORMAT_RGBA8;
         break;
+    case BGRA_U8:
+        result = VPI_IMAGE_FORMAT_BGRA8;
+        break;
     case NV12:
         result = VPI_IMAGE_FORMAT_NV12_ER;
         break;
@@ -153,6 +156,9 @@ constexpr VPIPixelType ToVpiPixelType(ImageType value) {
         result = VPI_PIXEL_TYPE_3U8;
         break;
     case RGBA_U8:
+        result = VPI_PIXEL_TYPE_4U8;
+        break;
+    case BGRA_U8:
         result = VPI_PIXEL_TYPE_4U8;
         break;
     default:

@@ -32,10 +32,12 @@ def generate_launch_description():
                 'backends': 'CUDA',
                 'max_disparity': 64.0,
         }],
-        remappings=[('left/image_rect', 'rgb_left'),
-                    ('left/camera_info', 'camera_info_left'),
-                    ('right/image_rect', 'rgb_right'),
-                    ('right/camera_info', 'camera_info_right')])
+        remappings=[('left/image_rect', 'front_stereo_camera/left_rgb/image_raw'),
+                    ('left/camera_info', 'front_stereo_camera/left_rgb/camerainfo'),
+                    ('right/image_rect', 'front_stereo_camera/right_rgb/image_raw'),
+                    ('right/camera_info', 'front_stereo_camera/right_rgb/camerainfo')
+                    ]
+    )
 
     pointcloud_node = ComposableNode(
         package='isaac_ros_stereo_image_proc',
@@ -44,9 +46,11 @@ def generate_launch_description():
                 'use_color': True,
                 'unit_scaling': 1.0
         }],
-        remappings=[('left/image_rect_color', 'rgb_left'),
-                    ('left/camera_info', 'camera_info_left'),
-                    ('right/camera_info', 'camera_info_right')])
+        remappings=[('left/image_rect_color', 'front_stereo_camera/left_rgb/image_raw'),
+                    ('left/camera_info', 'front_stereo_camera/left_rgb/camerainfo'),
+                    ('right/camera_info', 'front_stereo_camera/right_rgb/camerainfo')
+                    ]
+    )
 
     container = ComposableNodeContainer(
         name='disparity_container',
@@ -64,6 +68,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         arguments=['-d', rviz_config_path],
-        output='screen')
+        output='screen'
+    )
 
     return (launch.LaunchDescription([container, rviz_node]))

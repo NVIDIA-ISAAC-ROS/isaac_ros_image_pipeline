@@ -128,5 +128,29 @@ template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<NV2
     const Image<Y_U8>&, VPIStream&, VPIBackend);
 template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<Y_U8>&,
     const Image<NV24>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<BGR_U8>&,
+    const Image<BGRA_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<RGB_U8>&,
+    const Image<RGBA_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<BGR_U8>&,
+    const Image<RGBA_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<RGB_U8>&,
+    const Image<BGRA_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<BGRA_U8>&,
+    const Image<BGR_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<RGBA_U8>&,
+    const Image<RGB_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<BGRA_U8>&,
+    const Image<RGB_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<RGBA_U8>&,
+    const Image<BGR_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<NV12>&,
+    const Image<RGBA_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<RGBA_U8>&,
+    const Image<NV12>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<NV12>&,
+    const Image<BGRA_U8>&, VPIStream&, VPIBackend);
+template std::error_code VPITensorStream::VPIColorConvertImpl::execute(Image<BGRA_U8>&,
+    const Image<NV12>&, VPIStream&, VPIBackend);
 }  // namespace tensor_ops
 }  // namespace cvcore

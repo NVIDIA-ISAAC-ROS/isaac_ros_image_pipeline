@@ -56,20 +56,21 @@ gxf::Expected<void> StereoExtrinsicsNormalizer::postProcessTransformation(
       GXF_UNWRAP_OR_RETURN(input_right_message.get<gxf::Pose3D>("target_extrinsics_delta"));
 
   // Do post processing of extrinsic data
-  ::isaac::Pose3d left_T_origin =
+  ::nvidia::isaac::Pose3d left_T_origin =
       ConvertToIsaacPose(*left_camera_extrinsics.get());
-  ::isaac::Pose3d right_T_left =
+  ::nvidia::isaac::Pose3d right_T_left =
       ConvertToIsaacPose(*right_camera_extrinsics.get());
-  ::isaac::Pose3d left_rectified_T_left =
+  ::nvidia::isaac::Pose3d left_rectified_T_left =
       ConvertToIsaacPose(*left_camera_target_extrinsics.get());
-  ::isaac::Pose3d right_rectified_T_right =
+  ::nvidia::isaac::Pose3d right_rectified_T_right =
       ConvertToIsaacPose(*right_camera_target_extrinsics.get());
-  ::isaac::Pose3d rectified_right_T_rectified_left =
+  ::nvidia::isaac::Pose3d rectified_right_T_rectified_left =
       right_rectified_T_right * right_T_left * left_rectified_T_left.inverse();
 
   gxf::Pose3D processed_right_extrinsics = ConvertToGxfPose(
       rectified_right_T_rectified_left);
-  ::isaac::Pose3d origin_T_rectified_left = (left_rectified_T_left * left_T_origin).inverse();
+  ::nvidia::isaac::Pose3d origin_T_rectified_left =
+      (left_rectified_T_left * left_T_origin).inverse();
 
   gxf::Pose3D processed_left_extrinsics = ConvertToGxfPose(
       origin_T_rectified_left);

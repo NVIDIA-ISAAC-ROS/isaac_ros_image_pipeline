@@ -1,0 +1,10 @@
+{
+  "image": "disparity.npy",
+  "header": {
+    "frame_id": "tf_camera"
+  },
+  "min_disparity": 0.0,
+  "max_disparity": 64.0,
+  "f": 434.943999,
+  "t": -0.367863
+}

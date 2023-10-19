@@ -29,6 +29,14 @@ gxf::Expected<std::tuple<size_t, size_t, size_t>> GetHWCIndices(const ImageType 
     case ImageType::Y_F32:
     case ImageType::RGB_U8:
     case ImageType::BGR_U8:
+    case ImageType::RGBA_U8:
+    case ImageType::RGBA_U16:
+    case ImageType::RGBA_F16:
+    case ImageType::RGBA_F32:
+    case ImageType::BGRA_U8:
+    case ImageType::BGRA_U16:
+    case ImageType::BGRA_F16:
+    case ImageType::BGRA_F32:
     case ImageType::RGB_U16:
     case ImageType::BGR_U16:
     case ImageType::RGB_F32:
@@ -56,6 +64,8 @@ gxf::Expected<gxf::PrimitiveType> GetPrimitiveType(
     case cvcore::tensor_ops::ImageType::Y_U8:
     case cvcore::tensor_ops::ImageType::RGB_U8:
     case cvcore::tensor_ops::ImageType::BGR_U8:
+    case cvcore::tensor_ops::ImageType::RGBA_U8:
+    case cvcore::tensor_ops::ImageType::BGRA_U8:
     case cvcore::tensor_ops::ImageType::PLANAR_RGB_U8:
     case cvcore::tensor_ops::ImageType::PLANAR_BGR_U8: {
       return gxf::PrimitiveType::kUnsigned8;

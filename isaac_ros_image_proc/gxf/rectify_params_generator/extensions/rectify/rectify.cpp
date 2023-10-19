@@ -22,7 +22,7 @@ GXF_EXT_FACTORY_BEGIN()
 
 GXF_EXT_FACTORY_SET_INFO(0xd8d7816ec0485ad4, 0xff795a414bd445ca, "RECTIFY",
                          "Extension containing components for rectify",
-                         "Isaac SDK", "1.0.0", "LICENSE");
+                         "Isaac SDK", "2.0.0", "LICENSE");
 
 GXF_EXT_FACTORY_ADD(0xa9ddb12454d54aeb, 0x9739263d9fd1f635,
                       nvidia::isaac::RectifyParamsGenerator, nvidia::gxf::Codelet,

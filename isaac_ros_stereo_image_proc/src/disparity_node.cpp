@@ -64,7 +64,7 @@ const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/multimedia/libgxf_multimedia.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
   {"isaac_ros_gxf", "gxf/lib/serialization/libgxf_serialization.so"},
-  {"isaac_ros_stereo_image_proc", "gxf/lib/sgm_disparity/libgxf_disparity_extension.so"},
+  {"isaac_ros_stereo_image_proc", "gxf/lib/sgm_disparity/libgxf_sgm.so"},
   {"isaac_ros_gxf", "gxf/lib/libgxf_synchronization.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
@@ -129,7 +129,14 @@ DisparityNode::DisparityNode(const rclcpp::NodeOptions & options)
     EXTENSIONS,
     PACKAGE_NAME),
   vpi_backends_(declare_parameter<std::string>("backends", "CUDA")),
-  max_disparity_(declare_parameter<float>("max_disparity", 64))
+  max_disparity_(declare_parameter<float>("max_disparity", 256)),
+  confidence_threshold_(declare_parameter<int>("confidence_threshold", 60000)),
+  window_size_(declare_parameter<int>("window_size", 7)),
+  num_passes_(declare_parameter<int>("num_passes", 2)),
+  p1_(declare_parameter<int>("p1", 8)),
+  p2_(declare_parameter<int>("p2", 120)),
+  p2_alpha_(declare_parameter<int>("p2_alpha", 1)),
+  quality_(declare_parameter<int>("quality", 1))
 {
   RCLCPP_DEBUG(get_logger(), "[DisparityNode] Constructor");
 
@@ -146,7 +153,7 @@ void DisparityNode::preLoadGraphCallback()
 
   NitrosNode::preLoadGraphSetParameter(
     "disparity",
-    "nvidia::isaac_ros::SGMDisparity",
+    "nvidia::isaac::SGMDisparity",
     "max_disparity",
     std::to_string(max_disparity_));
 }
@@ -157,8 +164,29 @@ void DisparityNode::postLoadGraphCallback()
 
   // Supported backends: CUDA, XAVIER, ORIN.
   getNitrosContext().setParameterStr(
-    "disparity", "nvidia::isaac_ros::SGMDisparity", "backends",
+    "disparity", "nvidia::isaac::SGMDisparity", "backends",
     vpi_backends_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "confidence_threshold",
+    confidence_threshold_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "window_size",
+    window_size_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "num_passes",
+    num_passes_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "p1",
+    p1_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "p2",
+    p2_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "p2_alpha",
+    p2_alpha_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "quality",
+    quality_);
 }
 
 DisparityNode::~DisparityNode() {}

@@ -193,6 +193,20 @@ struct NoPaddingColorPlanes<gxf::VideoFormat::GXF_VIDEO_FORMAT_B32_G32_R32> {
   std::array<gxf::ColorPlane, 3> planes;
 };
 
+template <>
+struct NoPaddingColorPlanes<gxf::VideoFormat::GXF_VIDEO_FORMAT_D32F> {
+  explicit NoPaddingColorPlanes(uint32_t width)
+      : planes({nvidia::gxf::ColorPlane("D", 4, width * 4)}) {}
+  std::array<nvidia::gxf::ColorPlane, 1> planes;
+};
+
+template <>
+struct NoPaddingColorPlanes<gxf::VideoFormat::GXF_VIDEO_FORMAT_D64F> {
+  explicit NoPaddingColorPlanes(uint32_t width)
+      : planes({nvidia::gxf::ColorPlane("D", 8, width * 8)}) {}
+  std::array<nvidia::gxf::ColorPlane, 1> planes;
+};
+
 // This includes the list of video buffer formats that supported for the allocator
 constexpr bool IsSupportedVideoFormat(const gxf::VideoFormat format) {
   return format == gxf::VideoFormat::GXF_VIDEO_FORMAT_RGB ||
@@ -216,7 +230,9 @@ constexpr bool IsSupportedVideoFormat(const gxf::VideoFormat format) {
          format == gxf::VideoFormat::GXF_VIDEO_FORMAT_NV12 ||
          format == gxf::VideoFormat::GXF_VIDEO_FORMAT_NV12_ER ||
          format == gxf::VideoFormat::GXF_VIDEO_FORMAT_NV24 ||
-         format == gxf::VideoFormat::GXF_VIDEO_FORMAT_NV24_ER;
+         format == gxf::VideoFormat::GXF_VIDEO_FORMAT_NV24_ER ||
+         format == gxf::VideoFormat::GXF_VIDEO_FORMAT_D32F ||
+         format == gxf::VideoFormat::GXF_VIDEO_FORMAT_D64F;
 }
 
 template<gxf::VideoFormat T, typename std::enable_if<!IsSupportedVideoFormat(T)>::type* = nullptr>

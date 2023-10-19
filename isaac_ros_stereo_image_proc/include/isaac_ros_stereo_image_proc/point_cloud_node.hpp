@@ -54,6 +54,8 @@ private:
   // Point cloud node parameters
   bool use_color_;
   float unit_scaling_;
+  uint16_t output_height_;
+  uint16_t output_width_;
 };
 
 }  // namespace stereo_image_proc

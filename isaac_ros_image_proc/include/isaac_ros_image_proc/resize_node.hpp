@@ -52,6 +52,7 @@ private:
   int64_t output_height_;
   int64_t num_blocks_;
   bool keep_aspect_ratio_;
+  const std::string encoding_desired_;
 };
 
 }  // namespace image_proc

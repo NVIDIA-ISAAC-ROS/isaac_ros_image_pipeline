@@ -2,7 +2,7 @@
 
 This tutorial demonstrates how to perform depth-camera based reconstruction using a [Realsense](https://www.intel.com/content/www/us/en/architecture-and-technology/realsense-overview.html) camera and [disparity_node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline/blob/main/isaac_ros_stereo_image_proc/src/disparity_node.cpp).
 
-> **Note**: This tutorial requires a compatible RealSense camera from the list available [here](https://github.com/NVIDIA-ISAAC-ROS/.github/blob/main/profile/realsense-setup.md#camera-compatibility).
+> **Note**: This tutorial requires a compatible RealSense camera from the list available [here](https://gitlab-master.nvidia.com/isaac_ros/nvidia-isaac-ros/-/blob/dev/profile/realsense-setup.md#camera-compatibility).
 
 1. Complete the [RealSense setup tutorial](https://github.com/NVIDIA-ISAAC-ROS/.github/blob/main/profile/realsense-setup.md).
 
@@ -34,7 +34,7 @@ This tutorial demonstrates how to perform depth-camera based reconstruction usin
 5. Run the launch file, which launches the example, and wait for 10 seconds.
 
     ```bash
-    ros2 launch isaac_ros_stereo_image_proc isaac_ros_stereo_image_pipeline.launch.py
+    ros2 launch isaac_ros_stereo_image_proc isaac_ros_stereo_image_pipeline_realsense.launch.py
     ```
 
 Here is a screenshot of the result from running the example:

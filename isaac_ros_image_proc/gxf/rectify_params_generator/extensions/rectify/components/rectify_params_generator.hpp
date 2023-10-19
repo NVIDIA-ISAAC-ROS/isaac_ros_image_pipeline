@@ -21,7 +21,6 @@
 #include <string>
 
 #include "gxf/multimedia/camera.hpp"
-#include "gxf/std/allocator.hpp"
 #include "gxf/std/codelet.hpp"
 #include "gxf/std/receiver.hpp"
 #include "gxf/std/transmitter.hpp"
@@ -32,11 +31,6 @@ namespace isaac {
 // Takes an camera model as input and generate rectify parameters.
 class RectifyParamsGenerator : public gxf::Codelet {
  public:
-  // Explicitly declare constructors and destructors
-  // to get around forward declaration of AprilTagsData
-  RectifyParamsGenerator();
-  ~RectifyParamsGenerator();
-
   gxf_result_t registerInterface(gxf::Registrar* registrar) override;
   gxf_result_t initialize() { return GXF_SUCCESS; }
   gxf_result_t deinitialize() { return GXF_SUCCESS; }
@@ -55,7 +49,6 @@ class RectifyParamsGenerator : public gxf::Codelet {
   gxf::Parameter<gxf::Handle<gxf::Receiver>> right_camera_input_;
   gxf::Parameter<gxf::Handle<gxf::Transmitter>> left_camera_output_;
   gxf::Parameter<gxf::Handle<gxf::Transmitter>> right_camera_output_;
-  gxf::Parameter<gxf::Handle<gxf::Allocator>> allocator_;
   gxf::Parameter<std::string> left_camera_model_file_;
   gxf::Parameter<std::string> right_camera_model_file_;
   gxf::Parameter<double> alpha_;

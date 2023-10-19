@@ -23,10 +23,10 @@ namespace nvidia {
 namespace isaac {
 
 // Converts an isaac pose object to a GXF pose object
-gxf::Pose3D ConvertToGxfPose(const ::isaac::Pose3d& pose);
+gxf::Pose3D ConvertToGxfPose(const ::nvidia::isaac::Pose3d& pose);
 
 // Converts GXFPose to Isaac pose
-::isaac::Pose3d ConvertToIsaacPose(const gxf::Pose3D& pose);
+::nvidia::isaac::Pose3d ConvertToIsaacPose(const gxf::Pose3D& pose);
 
 }  // namespace isaac
 }  // namespace nvidia

@@ -62,6 +62,7 @@ class IsaacROSRectifyTest(IsaacROSBaseTest):
     """Validate that input timestamps match output timestamps."""
 
     filepath = pathlib.Path(os.path.dirname(__file__))
+    input_timestamps = []
 
     @IsaacROSBaseTest.for_each_test_case(subfolder='rectify')
     def test_rectify_chessboard(self, test_folder) -> None:
@@ -95,13 +96,12 @@ class IsaacROSRectifyTest(IsaacROSBaseTest):
 
             done = False
 
-            input_timestamps = []
             while time.time() < end_time:
                 # Synchronize timestamps on both input messages
                 timestamp = self.node.get_clock().now().to_msg()
                 image_raw.header.stamp = timestamp
                 camera_info.header.stamp = timestamp
-                input_timestamps.append(timestamp)
+                self.input_timestamps.append(timestamp)
 
                 # Publish test case over both topics
                 image_raw_pub.publish(image_raw)
@@ -119,9 +119,9 @@ class IsaacROSRectifyTest(IsaacROSBaseTest):
                 self.assertTrue(received_message[0].header.stamp ==
                                 received_message[1].header.stamp,
                                 'Timestamps are not synced!')
-                self.assertTrue(received_message[0].header.stamp in input_timestamps,
+                self.assertTrue(received_message[0].header.stamp in self.input_timestamps,
                                 'Rectified image timestamp not in list of input timestamps!')
-                self.assertTrue(received_message[1].header.stamp in input_timestamps,
+                self.assertTrue(received_message[1].header.stamp in self.input_timestamps,
                                 'Rectified camera info timestamp not in list of \
                                 input timestamps!')
             self.assertTrue(done, "Didn't receive time synced output!")

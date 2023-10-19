@@ -260,6 +260,78 @@ class ITensorOperatorStream {
         return make_error_code(ErrorCode::NOT_IMPLEMENTED);
     }
 
+    virtual std::error_code ColorConvert(Image<BGR_U8> & outputImage,
+        const Image<BGRA_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<RGB_U8> & outputImage,
+        const Image<RGBA_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<BGR_U8> & outputImage,
+        const Image<RGBA_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<RGB_U8> & outputImage,
+        const Image<BGRA_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<BGRA_U8> & outputImage,
+        const Image<BGR_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<RGBA_U8> & outputImage,
+        const Image<RGB_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<BGRA_U8> & outputImage,
+        const Image<RGB_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<RGBA_U8> & outputImage,
+        const Image<BGR_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<BGRA_U8> & outputImage,
+        const Image<NV12> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<RGBA_U8> & outputImage,
+        const Image<NV12> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<NV12> & outputImage,
+        const Image<BGRA_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
+    virtual std::error_code ColorConvert(Image<NV12> & outputImage,
+        const Image<RGBA_U8> & inputImage) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
+
     virtual std::error_code StereoDisparityEstimator(Image<Y_F32> & outputImage,
         const Image<Y_U8> & inputLeftImage, const Image<Y_U8> & inputRightImage,
         size_t windowSize, size_t maxDisparity) {

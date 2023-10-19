@@ -1,0 +1,297 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+---
+name: sync
+components:
+- name: depth_image_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: depth_image_receiver
+    min_size: 1
+- name: rgb_image_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: rgb_image_receiver
+    min_size: 1
+- name: cam_info_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: cam_info_receiver
+    min_size: 1
+- type: nvidia::isaac_ros::Synchronization
+  parameters:
+    depth_image_receiver: depth_image_receiver
+    cam_info_receiver: cam_info_receiver
+    rgb_image_receiver: rgb_image_receiver
+    depth_image_transmitter: depth_image_transmitter
+    cam_info_transmitter: cam_info_transmitter
+    rgb_image_transmitter: rgb_image_transmitter
+    inputs: [depth_image_receiver, cam_info_receiver, rgb_image_receiver]
+    outputs: [depth_image_transmitter, cam_info_transmitter, rgb_image_transmitter]
+- name: depth_image_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: depth_image_transmitter
+    min_size: 1
+- name: cam_info_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: cam_info_transmitter
+    min_size: 1
+- name: rgb_image_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: rgb_image_transmitter
+    min_size: 1
+---
+name: camera_info_broadcaster
+components:
+- type: nvidia::gxf::Broadcast
+  parameters:
+    source: camera_info_in
+- name: camera_info_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_info_in
+    min_size: 1
+- name: camera_info_out_1
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: camera_info_out_1
+    min_size: 1
+- name: camera_info_out_2
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: camera_info_out_2
+    min_size: 1
+---
+name: depth_message_compositor
+components:
+- name: video_buffer_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: video_buffer_input
+    min_size: 1
+- name: camera_model_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_model_input
+    min_size: 1
+- name: depth_message_output
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: depth_message_output
+    min_size: 1
+- name: depth_message_compositor
+  type: nvidia::isaac::CameraMessageCompositor
+  parameters:
+    video_buffer_input: video_buffer_input
+    camera_model_input: camera_model_input
+    camera_message_output: depth_message_output
+---
+name: rgb_message_compositor
+components:
+- name: video_buffer_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: video_buffer_input
+    min_size: 1
+- name: camera_model_input
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_model_input
+    min_size: 1
+- name: rgb_message_output
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: rgb_message_output
+    min_size: 1
+- name: rgb_message_compositor
+  type: nvidia::isaac::CameraMessageCompositor
+  parameters:
+    video_buffer_input: video_buffer_input
+    camera_model_input: camera_model_input
+    camera_message_output: rgb_message_output
+---
+name: depth_to_pointcloud
+components:
+- name: depth_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: depth_receiver
+    min_size: 1
+- name: image_receiver
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: image_receiver
+    min_size: 1
+- name: point_cloud_transmitter
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: point_cloud_transmitter
+    min_size: 1
+- name: allocator
+  type: nvidia::gxf::BlockMemoryPool
+  parameters:
+    storage_type: 1
+    block_size: 33177600
+    num_blocks: 40
+- name: depth_to_pointcloud
+  type: nvidia::isaac_ros::depth_image_proc::DepthToPointCloud
+  parameters:
+    allocator: allocator
+    depth_receiver: depth_receiver
+    image_receiver: image_receiver
+    point_cloud_transmitter: point_cloud_transmitter
+    skip: 1
+---
+name: sink
+components:
+- name: signal
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 2
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: signal
+    min_size: 1
+- name: sink
+  type: nvidia::isaac_ros::MessageRelay
+  parameters:
+    source: signal
+---
+name: connections
+components:
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/depth_image_transmitter
+    target: depth_message_compositor/video_buffer_input
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/rgb_image_transmitter
+    target: rgb_message_compositor/video_buffer_input
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/cam_info_transmitter
+    target: camera_info_broadcaster/camera_info_in
+- type: nvidia::gxf::Connection
+  parameters:
+    source: camera_info_broadcaster/camera_info_out_1
+    target: depth_message_compositor/camera_model_input
+- type: nvidia::gxf::Connection
+  parameters:
+    source: camera_info_broadcaster/camera_info_out_2
+    target: rgb_message_compositor/camera_model_input
+- type: nvidia::gxf::Connection
+  parameters:
+    source: depth_message_compositor/depth_message_output
+    target: depth_to_pointcloud/depth_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: rgb_message_compositor/rgb_message_output
+    target: depth_to_pointcloud/image_receiver
+- type: nvidia::gxf::Connection
+  parameters:
+    source: depth_to_pointcloud/point_cloud_transmitter
+    target: sink/signal
+---
+components:
+- name: clock
+  type: nvidia::gxf::RealtimeClock
+- type: nvidia::gxf::MultiThreadScheduler
+  parameters:
+    clock: clock
+    stop_on_deadlock: false
+    check_recession_period_ms: 1
+    worker_thread_number: 2
+- type: nvidia::gxf::JobStatistics
+  parameters:
+    clock: clock
