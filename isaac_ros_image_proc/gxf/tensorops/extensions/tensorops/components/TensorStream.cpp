@@ -80,7 +80,7 @@ gxf_result_t TensorStream::initialize() {
     return GXF_FAILURE;
   }
   if (!cvcore::tensor_ops::TensorContextFactory::IsBackendSupported(backend_type.value())) {
-    GXF_LOG_ERROR("unsupported context type:%d", backend_type.value());
+    GXF_LOG_ERROR("unsupported context type:%d", static_cast<int>(backend_type.value()));
     return GXF_FAILURE;
   }
   auto err_code = cvcore::tensor_ops::TensorContextFactory::CreateContext(

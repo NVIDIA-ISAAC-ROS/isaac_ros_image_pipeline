@@ -204,6 +204,30 @@ gxf_result_t ConvertColorFormatBase<true>::doExecute(
       cvcore::tensor_ops::ImageType::Y_U8);
   DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::Y_U8,
       cvcore::tensor_ops::ImageType::NV24);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::BGRA_U8,
+      cvcore::tensor_ops::ImageType::BGR_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::RGBA_U8,
+      cvcore::tensor_ops::ImageType::RGB_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::BGRA_U8,
+      cvcore::tensor_ops::ImageType::RGB_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::RGBA_U8,
+      cvcore::tensor_ops::ImageType::BGR_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::BGR_U8,
+      cvcore::tensor_ops::ImageType::BGRA_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::RGB_U8,
+      cvcore::tensor_ops::ImageType::RGBA_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::BGR_U8,
+      cvcore::tensor_ops::ImageType::RGBA_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::RGB_U8,
+      cvcore::tensor_ops::ImageType::BGRA_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::RGBA_U8,
+      cvcore::tensor_ops::ImageType::NV12);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::NV12,
+      cvcore::tensor_ops::ImageType::RGBA_U8);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::BGRA_U8,
+      cvcore::tensor_ops::ImageType::NV12);
+  DEFINE_STREAM_CONVERT_COLOR_FORMAT(cvcore::tensor_ops::ImageType::NV12,
+      cvcore::tensor_ops::ImageType::BGRA_U8);
   // Return error code for unsupported type
   GXF_LOG_ERROR("invalid input/output type for image color conversion.");
   return GXF_FAILURE;

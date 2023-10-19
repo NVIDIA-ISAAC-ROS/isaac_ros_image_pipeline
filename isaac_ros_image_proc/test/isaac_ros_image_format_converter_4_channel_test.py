@@ -60,7 +60,7 @@ class IsaacROSFormatBGRTest(IsaacROSBaseTest):
     """Vaidate format conversion to the bgr8 format."""
 
     def test_rgb_to_bgr_conversion(self) -> None:
-        """Expect the node to convert rgb8 input images into the bgr8 format."""
+        """Expect the node to convert bgra8 input images into the bgr8 format."""
         self.generate_namespace_lookup(['image_raw', 'image'])
         received_messages = {}
 
@@ -73,12 +73,12 @@ class IsaacROSFormatBGRTest(IsaacROSBaseTest):
             Image, self.generate_namespace('image_raw'), self.DEFAULT_QOS)
 
         try:
-            # Generate an input image in RGB encoding
-            cv_image = np.zeros((300, 300, 3), np.uint8)
-            cv_image[:] = (255, 0, 0)  # Full red, partial opacity
+            # Generate an input image in BGRA encoding
+            cv_image = np.zeros((300, 300, 4), np.uint8)
+            cv_image[:] = (255, 0, 0, 100)  # Full blue, partial opacity
 
             image_raw = CvBridge().cv2_to_imgmsg(cv_image)
-            image_raw.encoding = 'rgb8'  # Set image encoding explicitly
+            image_raw.encoding = 'bgra8'  # Set image encoding explicitly
 
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 2
@@ -109,8 +109,8 @@ class IsaacROSFormatBGRTest(IsaacROSBaseTest):
 
             # Make sure output image pixels match OpenCV result
             image_mono_actual = CvBridge().imgmsg_to_cv2(image)
-            image_mono_expected = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-            self.assertImagesEqual(image_mono_actual, image_mono_expected)
+            image_mono_expected = cv2.cvtColor(cv_image, cv2.COLOR_BGRA2BGR)
+            self.assertImagesEqual(image_mono_actual, image_mono_expected, 0.00001)
 
         finally:
             self.node.destroy_subscription(image_sub)

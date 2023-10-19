@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.23.2)
+cmake_minimum_required(VERSION 3.22.1)
 project(isaac_ros_stereo_image_proc CUDA CXX)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -35,11 +35,20 @@ ament_auto_add_library(disparity_node SHARED src/disparity_node.cpp)
 rclcpp_components_register_nodes(disparity_node "nvidia::isaac_ros::stereo_image_proc::DisparityNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::DisparityNode;$<TARGET_FILE:disparity_node>\n")
 
+# DisparityToDepthNode
+ament_auto_add_library(disparity_to_depth_node SHARED src/disparity_to_depth_node.cpp)
+rclcpp_components_register_nodes(disparity_to_depth_node "nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode")
+set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode;$<TARGET_FILE:disparity_to_depth_node>\n")
+
 ### Install extensions built from source
 
 # SGM Disparity
 add_subdirectory(gxf/sgm_disparity)
-install(TARGETS gxf_disparity_extension DESTINATION share/${PROJECT_NAME}/gxf/lib/sgm_disparity)
+install(TARGETS gxf_sgm DESTINATION share/${PROJECT_NAME}/gxf/lib/sgm_disparity)
+
+# Utils(for DisparityToDepthNode)
+add_subdirectory(gxf/utils)
+install(TARGETS gxf_utils DESTINATION share/${PROJECT_NAME}/gxf/lib/utils)
 
 ### End extensions
 
@@ -47,8 +56,15 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 
+
+  # The FindPythonInterp and FindPythonLibs modules are removed
+  if(POLICY CMP0148)
+    cmake_policy(SET CMP0148 OLD)
+  endif()
+
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/isaac_ros_stereo_disparity_pol.py)
+  add_launch_test(test/isaac_ros_stereo_disparity_to_depth_output_compare.py)
   add_launch_test(test/isaac_ros_stereo_point_cloud_pol.py)
   add_launch_test(test/isaac_ros_stereo_pipeline_pol.py)
   add_launch_test(test/isaac_ros_stereo_point_cloud_OSS_test.py)

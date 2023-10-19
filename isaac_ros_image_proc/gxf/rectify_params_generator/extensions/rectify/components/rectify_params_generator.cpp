@@ -83,45 +83,18 @@ void InitDistortionCoefficients(
     };
 }
 
-gxf::Expected<void> CopyVideoBuffer(
-    gxf::Handle<gxf::VideoBuffer> input,
-    gxf::Handle<gxf::VideoBuffer> output) {
-  if (!input || !output) {
-    return gxf::Unexpected{GXF_ARGUMENT_NULL};
-  }
-  // Copy image frame using same storage type
-  cudaMemcpyKind operation;
-  switch (input->storage_type()) {
-    case gxf::MemoryStorageType::kHost:
-    case gxf::MemoryStorageType::kSystem: {
-      operation = cudaMemcpyHostToHost;
-    } break;
-    case gxf::MemoryStorageType::kDevice: {
-      operation = cudaMemcpyDeviceToDevice;
-    } break;
-    default:
-      return gxf::Unexpected{GXF_MEMORY_INVALID_STORAGE_MODE};
+template<typename T>
+gxf::Expected<gxf::Handle<T>> get_or_add(gxf::Entity e, const char * name) {
+  gxf::Expected<gxf::Handle<T>> ret = e.get<T>(name);
+
+  if (ret) {
+    return ret;
   }
 
-  // TODO(tazhang) zero-copy forwarding when GXF implements GXF-490
-  const cudaError_t error = cudaMemcpy(
-      output->pointer(),
-      input->pointer(),
-      input->size(),
-      operation);
-  if (error != cudaSuccess) {
-    GXF_LOG_ERROR("%s", cudaGetErrorString(error));
-    return gxf::Unexpected{GXF_FAILURE};
-  }
-
-  return gxf::Success;
+  return e.add<T>(name);
 }
 
 }  // namespace
-
-RectifyParamsGenerator::RectifyParamsGenerator() {}
-
-RectifyParamsGenerator::~RectifyParamsGenerator() {}
 
 gxf_result_t RectifyParamsGenerator::registerInterface(gxf::Registrar* registrar) {
   gxf::Expected<void> result;
@@ -137,9 +110,6 @@ gxf_result_t RectifyParamsGenerator::registerInterface(gxf::Registrar* registrar
   result &= registrar->parameter(
       right_camera_output_, "right_camera_output", "Right Camera Model output",
       "Camera model output for right camera rectification");
-  result &= registrar->parameter(
-      allocator_, "allocator", "Allocator",
-      "Memory allocator");
   result &= registrar->parameter(
       alpha_, "alpha", "Alpha",
       "Free scaling parameter between 0 and 1", 0.0);
@@ -167,7 +137,7 @@ gxf_result_t RectifyParamsGenerator::start() {
   }
 
   for (auto idx = 0; idx < 2; idx++) {
-    const auto maybe_json = ::isaac::serialization::TryLoadJsonFromFile(filename[idx]);
+    const auto maybe_json = ::nvidia::isaac::serialization::TryLoadJsonFromFile(filename[idx]);
     if (!maybe_json) {
       GXF_LOG_ERROR("Failed to read json from file '%s'", filename[idx].c_str());
       return GXF_ARGUMENT_NULL;
@@ -190,74 +160,66 @@ gxf_result_t RectifyParamsGenerator::start() {
 }
 
 gxf_result_t RectifyParamsGenerator::tick() {
-  // Receive messages
+  gxf::Entity left_entity = GXF_UNWRAP_OR_RETURN(left_camera_input_->receive());
+  gxf::Entity right_entity = GXF_UNWRAP_OR_RETURN(right_camera_input_->receive());
+
   CameraMessageParts left_input;
   CameraMessageParts right_input;
 
   if (use_camera_model_file_) {
-    GXF_RETURN_IF_ERROR(left_camera_input_->receive().assign_to(left_input.entity));
-    left_input.frame = GXF_UNWRAP_OR_RETURN(left_input.entity.get<gxf::VideoBuffer>());
-    left_input.sequence_number =
-        GXF_UNWRAP_OR_RETURN(left_input.entity.get<int64_t>("sequence_number"));
-    left_input.timestamp = GXF_UNWRAP_OR_RETURN(left_input.entity.get<gxf::Timestamp>());
+    // this modifies the input, but it's only used in test
+    // this should be removed eventually, and replace with a "inject calibration
+    // codelet" that only adds the calibration data
+    GXF_LOG_WARNING("Using camera_model_file is deprecated and will be removed.");
 
-    GXF_RETURN_IF_ERROR(right_camera_input_->receive().assign_to(right_input.entity));
-    right_input.frame = GXF_UNWRAP_OR_RETURN(right_input.entity.get<gxf::VideoBuffer>());
-    right_input.sequence_number =
-        GXF_UNWRAP_OR_RETURN(right_input.entity.get<int64_t>("sequence_number"));
-    right_input.timestamp = GXF_UNWRAP_OR_RETURN(right_input.entity.get<gxf::Timestamp>());
+    left_input.timestamp = GXF_UNWRAP_OR_RETURN(left_entity.get<gxf::Timestamp>());
+    right_input.timestamp = GXF_UNWRAP_OR_RETURN(right_entity.get<gxf::Timestamp>());
 
-    GXF_RETURN_IF_ERROR(computeRectifyParams(camera_intrinsics_[0], camera_intrinsics_[1],
+    gxf::Handle<gxf::CameraModel> left_input_intrinsics =
+      GXF_UNWRAP_OR_RETURN(get_or_add<gxf::CameraModel>(left_entity, "intrinsics"));
+    gxf::Handle<gxf::Pose3D> left_input_extrinsics =
+      GXF_UNWRAP_OR_RETURN(get_or_add<gxf::Pose3D>(left_entity, "extrinsics"));
+    *left_input_intrinsics = camera_intrinsics_[0];
+    *left_input_extrinsics = camera_extrinsics_[0];
+
+    gxf::Handle<gxf::CameraModel> right_input_intrinsics =
+      GXF_UNWRAP_OR_RETURN(get_or_add<gxf::CameraModel>(right_entity, "intrinsics"));
+    gxf::Handle<gxf::Pose3D> right_input_extrinsics =
+      GXF_UNWRAP_OR_RETURN(get_or_add<gxf::Pose3D>(right_entity, "extrinsics"));
+    *right_input_intrinsics = camera_intrinsics_[1];
+    *right_input_extrinsics = camera_extrinsics_[1];
+
+    GXF_RETURN_IF_ERROR(computeRectifyParams(camera_intrinsics_[0],
+                                             camera_intrinsics_[1],
                                              camera_extrinsics_[1]));
-
   } else {
-    left_input = GXF_UNWRAP_OR_RETURN(left_camera_input_->receive().map(GetCameraMessage));
-    right_input = GXF_UNWRAP_OR_RETURN(right_camera_input_->receive().map(GetCameraMessage));
-    GXF_RETURN_IF_ERROR(computeRectifyParams(*left_input.intrinsics, *right_input.intrinsics,
+    left_input = GXF_UNWRAP_OR_RETURN(GetCameraMessage(left_entity));
+    right_input = GXF_UNWRAP_OR_RETURN(GetCameraMessage(right_entity));
+
+    GXF_RETURN_IF_ERROR(computeRectifyParams(*left_input.intrinsics,
+                                             *right_input.intrinsics,
                                              *right_input.extrinsics));
   }
 
-  // Create left output message
-  CameraMessageParts left_output = GXF_UNWRAP_OR_RETURN(CreateCameraMessage(
-      context(), left_input.frame->video_frame_info(), left_input.frame->size(),
-      left_input.frame->storage_type(), allocator_));
-
   gxf::Handle<gxf::CameraModel> left_target_camera =
-      GXF_UNWRAP_OR_RETURN(left_output.entity.add<gxf::CameraModel>("target_camera"));
+      GXF_UNWRAP_OR_RETURN(left_entity.add<gxf::CameraModel>("target_camera"));
   gxf::Handle<gxf::Pose3D> left_target_extrinsics =
-      GXF_UNWRAP_OR_RETURN(left_output.entity.add<gxf::Pose3D>("target_extrinsics_delta"));
-  // We put rectified_camera_rotation_raw_camera here
+      GXF_UNWRAP_OR_RETURN(left_entity.add<gxf::Pose3D>("target_extrinsics_delta"));
+
   *left_target_extrinsics = rectify_extrinsics_[0];
-  GXF_RETURN_IF_ERROR(CopyVideoBuffer(left_input.frame, left_output.frame));
   *left_target_camera = rectify_intrinsics_[0];
-  *left_output.intrinsics = use_camera_model_file_ ? camera_intrinsics_[0] : *left_input.intrinsics;
-  // This puts stereo extrinsics in
-  *left_output.extrinsics = use_camera_model_file_ ? camera_extrinsics_[0] : *left_input.extrinsics;
-  *left_output.sequence_number = *left_input.sequence_number;
-  *left_output.timestamp = *left_input.timestamp;
 
-  // Create right output message
-  CameraMessageParts right_output = GXF_UNWRAP_OR_RETURN(CreateCameraMessage(
-      context(), right_input.frame->video_frame_info(), right_input.frame->size(),
-      right_input.frame->storage_type(), allocator_));
-  // We put rectified_camera_rotation_raw_camera here
   gxf::Handle<gxf::Pose3D> right_target_extrinsics =
-      GXF_UNWRAP_OR_RETURN(right_output.entity.add<gxf::Pose3D>("target_extrinsics_delta"));
-  *right_target_extrinsics = rectify_extrinsics_[1];
+      GXF_UNWRAP_OR_RETURN(right_entity.add<gxf::Pose3D>("target_extrinsics_delta"));
   gxf::Handle<gxf::CameraModel> right_target_camera =
-      GXF_UNWRAP_OR_RETURN(right_output.entity.add<gxf::CameraModel>("target_camera"));
-  GXF_RETURN_IF_ERROR(CopyVideoBuffer(right_input.frame, right_output.frame));
-  *right_target_camera = rectify_intrinsics_[1];
-  *right_output.intrinsics = use_camera_model_file_ ? camera_intrinsics_[1] :
-    *right_input.intrinsics;
-  *right_output.extrinsics =
-      use_camera_model_file_ ? camera_extrinsics_[1] : *right_input.extrinsics;
-  *right_output.sequence_number = *right_input.sequence_number;
-  *right_output.timestamp = *right_input.timestamp;
+      GXF_UNWRAP_OR_RETURN(right_entity.add<gxf::CameraModel>("target_camera"));
 
-  GXF_RETURN_IF_ERROR(left_camera_output_->publish(left_output.entity,
+  *right_target_extrinsics = rectify_extrinsics_[1];
+  *right_target_camera = rectify_intrinsics_[1];
+
+  GXF_RETURN_IF_ERROR(left_camera_output_->publish(left_entity,
     left_input.timestamp->acqtime));
-  GXF_RETURN_IF_ERROR(right_camera_output_->publish(right_output.entity,
+  GXF_RETURN_IF_ERROR(right_camera_output_->publish(right_entity,
     right_input.timestamp->acqtime));
 
   return GXF_SUCCESS;

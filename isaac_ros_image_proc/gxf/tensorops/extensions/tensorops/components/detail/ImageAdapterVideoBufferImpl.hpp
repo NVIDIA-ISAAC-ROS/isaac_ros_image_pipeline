@@ -23,6 +23,7 @@
 
 #include "extensions/tensorops/core/Image.h"
 #include "gems/video_buffer/allocator.hpp"
+
 namespace nvidia {
 namespace isaac {
 namespace tensor_ops {
@@ -95,6 +96,11 @@ struct ImageTypeToVideoFormat<cvcore::tensor_ops::ImageType::RGBA_U8> {
 };
 
 template<>
+struct ImageTypeToVideoFormat<cvcore::tensor_ops::ImageType::BGRA_U8> {
+  static constexpr gxf::VideoFormat format = gxf::VideoFormat::GXF_VIDEO_FORMAT_BGRA;
+};
+
+template<>
 struct ImageTypeToVideoFormat<cvcore::tensor_ops::ImageType::RGB_U8> {
   static constexpr gxf::VideoFormat format = gxf::VideoFormat::GXF_VIDEO_FORMAT_RGB;
 };
@@ -141,7 +147,7 @@ struct ImageTypeToVideoFormat<cvcore::tensor_ops::ImageType::Y_U8> {
 
 template<>
 struct ImageTypeToVideoFormat<cvcore::tensor_ops::ImageType::Y_F32> {
-  static constexpr gxf::VideoFormat format = gxf::VideoFormat::GXF_VIDEO_FORMAT_GRAY32F;
+  static constexpr gxf::VideoFormat format = gxf::VideoFormat::GXF_VIDEO_FORMAT_D32F;
 };
 
 // This include the list of image types that GXF supported so far
@@ -149,6 +155,7 @@ constexpr bool IsValidGXFImageType(const cvcore::tensor_ops::ImageType type) {
   return type == cvcore::tensor_ops::ImageType::NV12 ||
          type == cvcore::tensor_ops::ImageType::NV24 ||
          type == cvcore::tensor_ops::ImageType::RGBA_U8 ||
+         type == cvcore::tensor_ops::ImageType::BGRA_U8 ||
          type == cvcore::tensor_ops::ImageType::RGB_U8 ||
          type == cvcore::tensor_ops::ImageType::BGR_U8 ||
          type == cvcore::tensor_ops::ImageType::RGB_F32 ||

@@ -20,14 +20,11 @@ import os
 import pathlib
 import time
 
-import cv2
-from cv_bridge import CvBridge
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
 
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
-import numpy as np
 import pytest
 import rclpy
 
@@ -92,12 +89,8 @@ class IsaacROSPointCloudTest(IsaacROSBaseTest):
                 test_folder / 'image_left.json')
             image_left.header.frame_id = 'left_cam'
 
-            disparity_image = DisparityImage()
-            disp_img = cv2.imread(os.path.join(
-                self.filepath, 'test_cases', 'stereo_images_chair', 'test_disparity.png'),
-                cv2.IMREAD_UNCHANGED).astype(np.float32)
-            disparity_image.image = CvBridge().cv2_to_imgmsg(disp_img, '32FC1')
-            disparity_image.min_disparity = np.min(disp_img).astype(np.float)
+            disparity_image = JSONConversion.load_disparity_image_from_json(
+                test_folder / 'disparity.json')
 
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')

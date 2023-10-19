@@ -19,11 +19,13 @@ import os
 import pathlib
 import time
 
+from cv_bridge import CvBridge
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
 
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
+import numpy as np
 import pytest
 import rclpy
 
@@ -31,6 +33,8 @@ from sensor_msgs.msg import CameraInfo, Image
 from stereo_msgs.msg import DisparityImage
 
 MAX_DISPARITY = 64.0
+# Generate test data for isaac_ros_stereo_disparity_to_depth_output_compare.py
+SAVE_DISPARITY = False
 
 
 @pytest.mark.rostest
@@ -110,11 +114,14 @@ class IsaacROSDisparityTest(IsaacROSBaseTest):
             disparity = received_messages['disparity']
             self.assertEqual(disparity.image.height, camera_info.height)
             self.assertEqual(disparity.image.width, camera_info.width)
-            self.assertAlmostEqual(disparity.f, -0.3678634)
-            self.assertAlmostEqual(disparity.t, 434.9440002)
+            self.assertAlmostEqual(disparity.f, 434.9440002)
+            self.assertAlmostEqual(disparity.t, -0.3678634)
             self.assertAlmostEqual(disparity.min_disparity, 0.0)
             self.assertAlmostEqual(disparity.max_disparity, MAX_DISPARITY)
-
+            if SAVE_DISPARITY:
+                disparity_image = CvBridge().imgmsg_to_cv2(disparity.image,
+                                                           desired_encoding='passthrough')
+                np.save(str(test_folder)+'/disparity.npy', disparity_image)
         finally:
             [self.node.destroy_subscription(sub) for sub in subs]
             self.node.destroy_publisher(image_left_pub)

@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include "extensions/tensorops/components/BBoxGenerator.hpp"
 #include "extensions/tensorops/components/CameraModel.hpp"
 #include "extensions/tensorops/components/ConvertColorFormat.hpp"
 #include "extensions/tensorops/components/CropAndResize.hpp"
@@ -84,4 +85,8 @@ GXF_EXT_FACTORY_ADD(0x5ab4a4d8f7a34552, 0xa90be52660b076fd,
 GXF_EXT_FACTORY_ADD(0x26789b7d5a8d4e84, 0x86b845ec5f4cd12a,
                     nvidia::isaac::tensor_ops::Reshape, nvidia::gxf::Codelet,
                     "Codelet for image reshape in tensor_ops");
+
+GXF_EXT_FACTORY_ADD(0xe60e138f73c24125, 0x906a2170401bc6ce,
+                    nvidia::isaac::tensor_ops::BBoxGenerator, nvidia::gxf::Codelet,
+                    "Codelet for generating bounding boxes");
 GXF_EXT_FACTORY_END()

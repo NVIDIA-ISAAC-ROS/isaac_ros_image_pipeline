@@ -58,6 +58,8 @@ struct VPIFormat
 
 VPIFormat ToVpiFormat(VideoFormat value)
 {
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wpedantic"
   switch (value) {
     case VideoFormat::GXF_VIDEO_FORMAT_NV12:
       return VPIFormat{.image_format = VPI_IMAGE_FORMAT_NV12,
@@ -88,6 +90,7 @@ VPIFormat ToVpiFormat(VideoFormat value)
     default:
       return VPIFormat{.image_format = VPI_IMAGE_FORMAT_RGB8, .pixel_type = {VPI_PIXEL_TYPE_3U8}};
   }
+  #pragma GCC diagnostic pop
 }
 
 VPIStatus CreateVPIImageWrapper(

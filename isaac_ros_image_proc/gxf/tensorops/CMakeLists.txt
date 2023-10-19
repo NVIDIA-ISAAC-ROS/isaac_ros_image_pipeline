@@ -33,6 +33,8 @@ find_package(GXF ${ISAAC_ROS_GXF_VERSION} MODULE REQUIRED
 # Create extension
 add_library(gxf_tensorops SHARED
   extensions/tensorops/tensorops.cpp
+  extensions/tensorops/components/BBoxGenerator.cpp
+  extensions/tensorops/components/BBoxGenerator.hpp
   extensions/tensorops/components/CameraModel.cpp
   extensions/tensorops/components/CameraModel.hpp
   extensions/tensorops/components/ConvertColorFormat.cpp
@@ -63,12 +65,7 @@ add_library(gxf_tensorops SHARED
   extensions/tensorops/components/detail/ImageAdapterTensorImpl.hpp
   extensions/tensorops/components/detail/ImageAdapterVideoBufferImpl.cpp
   extensions/tensorops/components/detail/ImageAdapterVideoBufferImpl.hpp
-)
 
-target_include_directories(gxf_tensorops PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(corelib STATIC
-  # Tensorops
   extensions/tensorops/core/ArithmeticOperations.cpp
   extensions/tensorops/core/BBoxUtils.cpp
   extensions/tensorops/core/ColorConversions.cpp
@@ -126,11 +123,10 @@ add_library(corelib STATIC
   extensions/tensorops/core/Traits.h
 )
 
-target_include_directories(corelib PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR})
-# target_compile_definitions(corelib PRIVATE -DENABLE_VPI=1)
+target_include_directories(gxf_tensorops PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(corelib
-  PUBLIC
+target_link_libraries(gxf_tensorops
+  PRIVATE
     CUDA::cudart
     CUDA::nppc
     CUDA::nppial
@@ -139,14 +135,8 @@ target_link_libraries(corelib
     CUDA::nppif
     CUDA::nppig
     CUDA::nppisu
-    vpi
-)
-
-target_link_libraries(gxf_tensorops
-  PUBLIC
     GXF::cuda
     GXF::multimedia
     yaml-cpp
-  PRIVATE
-    corelib
+    vpi
 )

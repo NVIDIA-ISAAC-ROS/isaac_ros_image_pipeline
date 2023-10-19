@@ -131,7 +131,9 @@ PointCloudNode::PointCloudNode(const rclcpp::NodeOptions & options)
     EXTENSIONS,
     PACKAGE_NAME),
   use_color_(declare_parameter<bool>("use_color", false)),
-  unit_scaling_(declare_parameter<float>("unit_scaling", 1.0))
+  unit_scaling_(declare_parameter<float>("unit_scaling", 1.0)),
+  output_height_(declare_parameter<uint16_t>("output_height", 1200)),
+  output_width_(declare_parameter<uint16_t>("output_width", 1920))
 {
   RCLCPP_DEBUG(get_logger(), "[PointCloudNode] Constructor");
 
@@ -162,6 +164,9 @@ void PointCloudNode::postLoadGraphCallback()
   getNitrosContext().setParameterBool(
     "point_cloud", "nvidia::isaac_ros::point_cloud::PointCloud", "use_color",
     use_color_);
+  getNitrosContext().setParameterUInt64(
+    "point_cloud", "nvidia::gxf::BlockMemoryPool", "block_size",
+    4 * 4 * output_width_ * output_height_);  // 4 bytes for each x, y, z, alpha (hence 4 * 4)
 }
 
 PointCloudNode::~PointCloudNode() {}

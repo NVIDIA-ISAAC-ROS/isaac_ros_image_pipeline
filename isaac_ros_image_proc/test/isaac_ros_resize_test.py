@@ -43,6 +43,7 @@ def generate_test_description():
             parameters=[{
                 'output_height': HEIGHT,
                 'output_width': WIDTH,
+                'encoding_desired': 'rgb8',
             }])]
 
     resize_container = launch_ros.actions.ComposableNodeContainer(
@@ -51,7 +52,10 @@ def generate_test_description():
         namespace='',
         executable='component_container',
         composable_node_descriptions=composable_nodes,
-        output='screen'
+        parameters=[{'encoding_desired': 'rgb8'}],
+        output='screen',
+        arguments=['--ros-args', '--log-level', 'info',
+                   '--log-level', 'isaac_ros_test.resize_node:=debug'],
     )
 
     return IsaacROSResizeTest.generate_test_description([resize_container])

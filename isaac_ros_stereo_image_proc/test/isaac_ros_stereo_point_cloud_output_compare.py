@@ -19,8 +19,6 @@ import os
 import pathlib
 import time
 
-import cv2
-from cv_bridge import CvBridge
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
 
 from launch_ros.actions import ComposableNodeContainer, Node
@@ -118,12 +116,8 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
             image_left = JSONConversion.load_image_from_json(
                 test_folder / 'image_left.json')
 
-            disparity_image = DisparityImage()
-            disp_img = cv2.imread(os.path.join(
-                self.filepath, 'test_cases', 'stereo_images_chair', 'test_disparity.png'),
-                cv2.IMREAD_UNCHANGED).astype(np.float32)
-            disparity_image.image = CvBridge().cv2_to_imgmsg(disp_img, '32FC1')
-            disparity_image.min_disparity = np.min(disp_img).astype(np.float)
+            disparity_image = JSONConversion.load_disparity_image_from_json(
+                test_folder / 'disparity.json')
 
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
@@ -167,16 +161,18 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
                     # Unpack array to avoid 0-d and type inference issues
                     isaac_ros_pt = np.array(
                         [isaac_ros_pt[0], isaac_ros_pt[1], isaac_ros_pt[2], isaac_ros_pt[3]])
-                    ref_pt = np.array([ref_pt[0], ref_pt[1], ref_pt[2], ref_pt[3]])
+                    ref_pt = np.array(
+                        [ref_pt[0], ref_pt[1], ref_pt[2], ref_pt[3]])
 
                     if np.any(np.isnan(isaac_ros_pt)) or np.any(np.isnan(ref_pt)):
-                        if(np.any(np.isnan(isaac_ros_pt))):
+                        if (np.any(np.isnan(isaac_ros_pt))):
                             nan_count_isaac_ros += 1
-                        if(np.any(np.isnan(ref_pt))):
+                        if (np.any(np.isnan(ref_pt))):
                             nan_count_ref += 1
                         continue
 
-                    xyz_error += np.sum(np.square(isaac_ros_pt[:3] - ref_pt[:3]))
+                    xyz_error += np.sum(
+                        np.square(isaac_ros_pt[:3] - ref_pt[:3]))
 
                     if USE_COLOR:
                         rgb_error += (isaac_ros_pt[3] - ref_pt[3])**2
@@ -187,7 +183,8 @@ class IsaacROSPointCloudComparisonTest(IsaacROSBaseTest):
                 xyz_error = xyz_error / n
                 self.node.get_logger().info(f'XYZ Error: {xyz_error}')
                 self.node.get_logger().info(f'RGB Error: {rgb_error}')
-                self.node.get_logger().info(f'nan_count_isaac_ros: {nan_count_isaac_ros}')
+                self.node.get_logger().info(
+                    f'nan_count_isaac_ros: {nan_count_isaac_ros}')
                 self.node.get_logger().info(f'nan_count_ref: {nan_count_ref}')
 
                 XYZ_ERROR_THRESHOLD = 1e-6  # Units in mm

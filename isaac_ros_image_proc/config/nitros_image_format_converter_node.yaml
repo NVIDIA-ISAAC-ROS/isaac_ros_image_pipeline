@@ -43,7 +43,7 @@ components:
     block_size: 14400000
     num_blocks: 40
 - name: converter
-  type: nvidia::isaac::tensor_ops::ConvertColorFormat
+  type: nvidia::isaac::tensor_ops::StreamConvertColorFormat
   parameters:
     output_type: "RGB_U8"
     receiver: data_receiver
@@ -52,6 +52,7 @@ components:
     input_adapter: resource/adapter
     output_adapter: resource/adapter
     output_name: "image"
+    stream: resource/stream
 ---
 name: sink
 components:

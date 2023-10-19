@@ -183,6 +183,7 @@ gxf_result_t ResizeBase<true>::doExecute(gxf::Entity& output,
   DEFINE_STREAM_RESIZE(cvcore::tensor_ops::ImageType::NV12);
   DEFINE_STREAM_RESIZE(cvcore::tensor_ops::ImageType::NV24);
   DEFINE_STREAM_RESIZE(cvcore::tensor_ops::ImageType::Y_U8);
+  DEFINE_STREAM_RESIZE(cvcore::tensor_ops::ImageType::RGBA_U8);
 
   // Return error code for unsupported type
   GXF_LOG_ERROR("invalid input/output type for image resize.");

@@ -113,6 +113,19 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
 };
 #pragma GCC diagnostic pop
 
+// ROS image type to Nitros image type mapping
+namespace img_encodings = sensor_msgs::image_encodings;
+const std::unordered_map<std::string, std::string> ROS_2_NITROS_FORMAT_MAP({
+        {img_encodings::RGB8, nitros::nitros_image_rgb8_t::supported_type_name},
+        {img_encodings::RGB16, nitros::nitros_image_rgb16_t::supported_type_name},
+        {img_encodings::BGR8, nitros::nitros_image_bgr8_t::supported_type_name},
+        {img_encodings::BGR16, nitros::nitros_image_bgr16_t::supported_type_name},
+        {img_encodings::MONO8, nitros::nitros_image_mono8_t::supported_type_name},
+        {img_encodings::MONO16, nitros::nitros_image_mono16_t::supported_type_name},
+        {img_encodings::NV24, nitros::nitros_image_nv24_t::supported_type_name},
+        {"nv12", nitros::nitros_image_nv12_t::supported_type_name},
+      });
+
 ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
 : nitros::NitrosNode(options,
     APP_YAML_FILENAME,
@@ -125,9 +138,11 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
   output_width_(declare_parameter<int64_t>("output_width", 1080)),
   output_height_(declare_parameter<int64_t>("output_height", 720)),
   num_blocks_(declare_parameter<int64_t>("num_blocks", 40)),
-  keep_aspect_ratio_(static_cast<bool>(declare_parameter<bool>("keep_aspect_ratio", false)))
+  keep_aspect_ratio_(static_cast<bool>(declare_parameter<bool>("keep_aspect_ratio", false))),
+  encoding_desired_(declare_parameter<std::string>("encoding_desired", ""))
 {
   RCLCPP_DEBUG(get_logger(), "[ResizeNode] Constructor");
+
   if (output_width_ <= 0 || output_height_ <= 0) {
     RCLCPP_ERROR(
       get_logger(),
@@ -135,6 +150,25 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
     throw std::invalid_argument(
             "[ResizeNode] Invalid output dimension "
             "Width and height need to be non-zero positive number.");
+  }
+
+  if (!encoding_desired_.empty()) {
+    auto nitros_format = ROS_2_NITROS_FORMAT_MAP.find(encoding_desired_);
+    if (nitros_format == std::end(ROS_2_NITROS_FORMAT_MAP)) {
+      RCLCPP_ERROR(
+        get_logger(), "[ResizeNode] Unsupported encoding[%s]",
+        encoding_desired_.c_str());
+      throw std::invalid_argument("[ResizeNode] Unsupported encoding.");
+    } else {
+      config_map_[INPUT_COMPONENT_KEY].compatible_data_format = nitros_format->second;
+      config_map_[OUTPUT_COMPONENT_KEY].compatible_data_format = nitros_format->second;
+      config_map_[OUTPUT_COMPONENT_KEY].use_compatible_format_only = true;
+
+      RCLCPP_INFO(
+        get_logger(),
+        "[ResizeNode] Set output data format to: \"%s\"",
+        nitros_format->second.c_str());
+    }
   }
 
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();

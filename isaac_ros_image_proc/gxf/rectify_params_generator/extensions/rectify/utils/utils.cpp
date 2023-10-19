@@ -23,7 +23,7 @@ namespace isaac {
 
 // TODO(kchahal) remove copy of ConvertToGxfPose and ConvertToIsaacPose in
 // `calibration/file/utils.cpp`
-gxf::Pose3D ConvertToGxfPose(const ::isaac::Pose3d& pose) {
+gxf::Pose3D ConvertToGxfPose(const ::nvidia::isaac::Pose3d& pose) {
   gxf::Pose3D res;
   auto matrix = pose.rotation.matrix();
   for (int i = 0; i < 3; i++) {
@@ -37,17 +37,17 @@ gxf::Pose3D ConvertToGxfPose(const ::isaac::Pose3d& pose) {
   return res;
 }
 
-::isaac::Pose3d ConvertToIsaacPose(const gxf::Pose3D& pose) {
-  ::isaac::Matrix3d matrix;
+::nvidia::isaac::Pose3d ConvertToIsaacPose(const gxf::Pose3D& pose) {
+  ::nvidia::isaac::Matrix3d matrix;
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 3; j++) {
       matrix(i, j) = pose.rotation[(i * 3) + j];
     }
   }
-  auto quaternion = ::isaac::SO3d::FromQuaternion(::isaac::Quaterniond(matrix));
+  auto quaternion = ::nvidia::isaac::SO3d::FromQuaternion(::nvidia::isaac::Quaterniond(matrix));
   auto translation =
-      ::isaac::Vector3d(pose.translation[0], pose.translation[1], pose.translation[2]);
-  return ::isaac::Pose3d{quaternion, translation};
+      ::nvidia::isaac::Vector3d(pose.translation[0], pose.translation[1], pose.translation[2]);
+  return ::nvidia::isaac::Pose3d{quaternion, translation};
 }
 
 }  // namespace isaac

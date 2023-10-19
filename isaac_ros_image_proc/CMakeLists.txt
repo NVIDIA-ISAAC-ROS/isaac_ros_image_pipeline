@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.23.2)
+cmake_minimum_required(VERSION 3.22.1)
 project(isaac_ros_image_proc LANGUAGES C CXX)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -74,6 +74,21 @@ install(TARGETS gxf_image_flip DESTINATION share/${PROJECT_NAME}/gxf/lib/image_p
 # TensorOps
 add_subdirectory(gxf/tensorops)
 install(TARGETS gxf_tensorops DESTINATION share/${PROJECT_NAME}/gxf/lib/image_proc)
+install(
+  TARGETS gxf_tensorops
+  EXPORT export_${PROJECT_NAME}
+  DESTINATION lib
+)
+
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_libraries(gxf_tensorops)
+
+install(
+    DIRECTORY gxf/tensorops/
+    DESTINATION include
+)
+ament_export_include_directories(include)
+
 
 # RectifyParamsGenerator
 add_subdirectory(gxf/rectify_params_generator)
@@ -84,6 +99,12 @@ install(TARGETS gxf_rectify_params_generator DESTINATION share/${PROJECT_NAME}/g
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+
+  # The FindPythonInterp and FindPythonLibs modules are removed
+  if(POLICY CMP0148)
+    cmake_policy(SET CMP0148 OLD)
+  endif()
 
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/isaac_ros_image_proc_test.py)

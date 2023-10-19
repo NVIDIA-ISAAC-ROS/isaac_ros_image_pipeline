@@ -22,7 +22,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Dependencies
-include(YamlCpp)
+find_package(yaml-cpp)
 find_package(GXF ${ISAAC_ROS_GXF_VERSION} MODULE REQUIRED
     multimedia
     isaac_messages

@@ -264,6 +264,30 @@ class VPITensorStream : public ITensorOperatorStream {
         const Image<Y_U8> & inputImage) override;
     std::error_code ColorConvert(Image<Y_U8> & outputImage,
         const Image<NV24> & inputImage) override;
+    std::error_code ColorConvert(Image<BGR_U8> & outputImage,
+        const Image<BGRA_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<RGB_U8> & outputImage,
+        const Image<RGBA_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<BGR_U8> & outputImage,
+        const Image<RGBA_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<RGB_U8> & outputImage,
+        const Image<BGRA_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<BGRA_U8> & outputImage,
+        const Image<BGR_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<RGBA_U8> & outputImage,
+        const Image<RGB_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<BGRA_U8> & outputImage,
+        const Image<RGB_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<RGBA_U8> & outputImage,
+        const Image<BGR_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<BGRA_U8> & outputImage,
+        const Image<NV12> & inputImage) override;
+    std::error_code ColorConvert(Image<RGBA_U8> & outputImage,
+        const Image<NV12> & inputImage) override;
+    std::error_code ColorConvert(Image<NV12> & outputImage,
+        const Image<BGRA_U8> & inputImage) override;
+    std::error_code ColorConvert(Image<NV12> & outputImage,
+        const Image<RGBA_U8> & inputImage) override;
 
     std::error_code StereoDisparityEstimator(Image<Y_F32> & outputImage,
         const Image<Y_U8> & inputLeftImage,

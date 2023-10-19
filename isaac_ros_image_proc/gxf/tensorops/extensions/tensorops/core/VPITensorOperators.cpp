@@ -178,6 +178,8 @@ template std::error_code CreateVPIImageWrapper(VPIImage&,
 template std::error_code CreateVPIImageWrapper(VPIImage&,
     VPIImageData&, const Image<RGBA_U8>&, VPIBackend);
 template std::error_code CreateVPIImageWrapper(VPIImage&,
+    VPIImageData&, const Image<BGRA_U8>&, VPIBackend);
+template std::error_code CreateVPIImageWrapper(VPIImage&,
     VPIImageData&, const Image<NV12>&, VPIBackend);
 template std::error_code CreateVPIImageWrapper(VPIImage&,
     VPIImageData&, const Image<NV24>&, VPIBackend);
@@ -396,6 +398,78 @@ std::error_code VPITensorStream::ColorConvert(Image<Y_U8>& outputImage,
 
 std::error_code VPITensorStream::ColorConvert(Image<NV24>& outputImage,
     const Image<Y_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<BGR_U8>& outputImage,
+    const Image<BGRA_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<RGB_U8>& outputImage,
+    const Image<RGBA_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<BGR_U8>& outputImage,
+    const Image<RGBA_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<RGB_U8>& outputImage,
+    const Image<BGRA_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<BGRA_U8>& outputImage,
+    const Image<BGR_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<RGBA_U8>& outputImage,
+    const Image<RGB_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<BGRA_U8>& outputImage,
+    const Image<RGB_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<RGBA_U8>& outputImage,
+    const Image<BGR_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<NV12>& outputImage,
+    const Image<BGRA_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<NV12>& outputImage,
+    const Image<RGBA_U8>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<BGRA_U8>& outputImage,
+    const Image<NV12>& inputImage) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
+}
+
+std::error_code VPITensorStream::ColorConvert(Image<RGBA_U8>& outputImage,
+    const Image<NV12>& inputImage) {
     std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
     return m_colorConverter->execute(outputImage, inputImage, m_stream, m_backend);
 }

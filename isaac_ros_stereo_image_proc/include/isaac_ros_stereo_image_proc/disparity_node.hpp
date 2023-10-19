@@ -52,8 +52,15 @@ public:
 
 private:
   // Disparity node parameters
-  std::string vpi_backends_;
-  float max_disparity_;
+  const std::string vpi_backends_;
+  const float max_disparity_;
+  const int confidence_threshold_;
+  const int window_size_;
+  const int num_passes_;
+  const int p1_;
+  const int p2_;
+  const int p2_alpha_;
+  const int quality_;
 };
 
 }  // namespace stereo_image_proc

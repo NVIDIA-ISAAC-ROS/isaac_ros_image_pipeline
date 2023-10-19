@@ -18,7 +18,7 @@
 project(gxf_image_flip LANGUAGES C CXX)
 
 # Dependencies
-include(YamlCpp)
+find_package(yaml-cpp)
 find_package(GXF ${ISAAC_ROS_GXF_VERSION} MODULE REQUIRED
     multimedia
 )

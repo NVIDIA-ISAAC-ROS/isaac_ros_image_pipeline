@@ -35,6 +35,9 @@ gxf::Expected<cvcore::tensor_ops::ImageType> GetImageTypeFromVideoFormat(
   case gxf::VideoFormat::GXF_VIDEO_FORMAT_RGBA: {
     return ImageType::RGBA_U8;
   }
+  case gxf::VideoFormat::GXF_VIDEO_FORMAT_BGRA: {
+    return ImageType::BGRA_U8;
+  }
   case gxf::VideoFormat::GXF_VIDEO_FORMAT_RGB: {
     return ImageType::RGB_U8;
   }
@@ -62,7 +65,7 @@ gxf::Expected<cvcore::tensor_ops::ImageType> GetImageTypeFromVideoFormat(
   case gxf::VideoFormat::GXF_VIDEO_FORMAT_GRAY: {
     return ImageType::Y_U8;
   }
-  case gxf::VideoFormat::GXF_VIDEO_FORMAT_GRAY32F: {
+  case gxf::VideoFormat::GXF_VIDEO_FORMAT_D32F: {
     return ImageType::Y_F32;
   }
   default: {
