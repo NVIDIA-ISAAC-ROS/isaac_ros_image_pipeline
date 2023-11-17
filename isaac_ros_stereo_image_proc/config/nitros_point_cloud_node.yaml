@@ -171,6 +171,10 @@ components:
     output_transmitter: data_transmitter
     use_color: false
     unit_scaling: 1
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: allocator
+    min_blocks: 1
 ---
 name: sink
 components:

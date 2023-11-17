@@ -132,6 +132,10 @@ components:
     depth_receiver: depth_receiver
     point_cloud_transmitter: point_cloud_transmitter
     skip: 1
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: allocator
+    min_blocks: 1
 ---
 name: sink
 components:
