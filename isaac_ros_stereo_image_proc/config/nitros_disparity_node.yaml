@@ -155,6 +155,10 @@ components:
     min_disparity: 0
     max_disparity: 64
     backends: "CUDA"
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: pool
+    min_blocks: 1
 ---
 name: left_camera_info_broadcaster
 components:

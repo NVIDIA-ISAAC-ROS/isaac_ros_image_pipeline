@@ -52,6 +52,10 @@ components:
     output_transmitter: data_transmitter
     backends: "CUDA"
     mode: "BOTH"
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: pool
+    min_blocks: 1
 ---
 name: sink
 components:

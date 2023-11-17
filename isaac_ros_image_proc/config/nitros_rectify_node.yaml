@@ -120,6 +120,10 @@ components:
     input_adapter: resource/adapter
     output_adapter: resource/adapter
     output_name: "image"
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: pool
+    min_blocks: 1
 ---
 name: splitter
 components:

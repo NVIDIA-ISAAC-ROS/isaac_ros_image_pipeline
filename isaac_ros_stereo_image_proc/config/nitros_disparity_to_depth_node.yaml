@@ -47,6 +47,10 @@ components:
     disparity_input: disparity_input
     depth_output: depth_output
     allocator: allocator
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: allocator
+    min_blocks: 1
 ---
 name: sink
 components:
