@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import rclpy
 from sensor_msgs.msg import Image
 
 ENCODING_DESIRED = 'mono8'
+HEIGHT = 300
+WIDTH = 300
 
 
 @pytest.mark.rostest
@@ -42,13 +44,15 @@ def generate_test_description():
             namespace=IsaacROSFormatMono8Test.generate_namespace(),
             parameters=[{
                     'encoding_desired': ENCODING_DESIRED,
+                    'image_width': WIDTH,
+                    'image_height': HEIGHT
             }])]
 
     format_container = launch_ros.actions.ComposableNodeContainer(
         name='format_container',
         namespace='',
         package='rclcpp_components',
-        executable='component_container',
+        executable='component_container_mt',
         composable_node_descriptions=composable_nodes,
         output='screen'
     )
@@ -74,7 +78,7 @@ class IsaacROSFormatMono8Test(IsaacROSBaseTest):
 
         try:
             # Generate an input image in RGB encoding
-            cv_image = np.zeros((300, 300, 3), np.uint8)
+            cv_image = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
             cv_image[:] = (255, 0, 0)  # Full red, partial opacity
 
             image_raw = CvBridge().cv2_to_imgmsg(cv_image)

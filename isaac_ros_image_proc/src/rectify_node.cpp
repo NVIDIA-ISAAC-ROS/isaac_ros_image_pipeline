@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #include <string>
 #include <utility>
 
+#include "isaac_ros_common/qos.hpp"
+
 #include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
 
@@ -38,11 +40,11 @@ namespace image_proc
 
 using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
 
-constexpr char INPUT_CAM_COMPONENT_KEY[] = "input_compositor/cam_info_in";
+constexpr char INPUT_CAM_COMPONENT_KEY[] = "sync/camera_info_in";
 constexpr char INPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char INPUT_CAM_TOPIC_NAME[] = "camera_info";
 
-constexpr char INPUT_COMPONENT_KEY[] = "input_compositor/image_in";
+constexpr char INPUT_COMPONENT_KEY[] = "sync/image_in";
 constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char INPUT_TOPIC_NAME[] = "image_raw";
 
@@ -50,7 +52,7 @@ constexpr char OUTPUT_COMPONENT_KEY[] = "image_sink/sink";
 constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char OUTPUT_TOPIC_NAME[] = "image_rect";
 
-constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camerainfo_sink/sink";
+constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camera_info_sink/sink";
 constexpr char OUTPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char OUTPUT_CAM_TOPIC_NAME[] = "camera_info_rect";
 
@@ -60,14 +62,13 @@ constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"isaac_ros_gxf", "gxf/lib/libgxf_message_compositor.so"},
-  {"isaac_ros_image_proc", "gxf/lib/image_proc/libgxf_tensorops.so"},
+  {"gxf_isaac_message_compositor", "gxf/lib/libgxf_isaac_message_compositor.so"},
+  {"gxf_isaac_tensorops", "gxf/lib/libgxf_isaac_tensorops.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
 };
-const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {
-};
+const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
 const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
   "config/namespace_injector_rule_rectify.yaml",
 };
@@ -128,6 +129,21 @@ RectifyNode::RectifyNode(const rclcpp::NodeOptions & options)
   output_height_(declare_parameter<int16_t>("output_height", 800))
 {
   RCLCPP_DEBUG(get_logger(), "[RectifyNode] Constructor");
+
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos");
+  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos");
+  for (auto & config : config_map_) {
+    if (config.second.topic_name == INPUT_CAM_TOPIC_NAME ||
+      config.second.topic_name == INPUT_TOPIC_NAME)
+    {
+      config.second.qos = input_qos_;
+    } else {
+      config.second.qos = output_qos_;
+    }
+  }
 
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "isaac_ros_stereo_image_proc/disparity_to_depth_node.hpp"
+
+#include "isaac_ros_common/qos.hpp"
 
 #include "isaac_ros_nitros_disparity_image_type/nitros_disparity_image.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
@@ -48,8 +50,7 @@ const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/multimedia/libgxf_multimedia.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
   {"isaac_ros_gxf", "gxf/lib/serialization/libgxf_serialization.so"},
-  {"isaac_ros_stereo_image_proc", "gxf/lib/utils/libgxf_utils.so"},
-  {"isaac_ros_gxf", "gxf/lib/libgxf_synchronization.so"},
+  {"gxf_isaac_utils", "gxf/lib/libgxf_isaac_utils.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_stereo_disparity",
@@ -90,6 +91,19 @@ DisparityToDepthNode::DisparityToDepthNode(const rclcpp::NodeOptions & options)
     PACKAGE_NAME)
 {
   RCLCPP_DEBUG(get_logger(), "[DisparityToDepthNode] Constructor");
+
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos");
+  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos");
+  for (auto & config : config_map_) {
+    if (config.second.topic_name == INPUT_TOPIC_NAME) {
+      config.second.qos = input_qos_;
+    } else {
+      config.second.qos = output_qos_;
+    }
+  }
 
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosDisparityImage>();
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ public:
 
   ResizeNode & operator=(const ResizeNode &) = delete;
 
+  void calculateOutputDims();
   // The callback to be implemented by users for any required initialization
   void postLoadGraphCallback() override;
 
@@ -53,6 +54,10 @@ private:
   int64_t num_blocks_;
   bool keep_aspect_ratio_;
   const std::string encoding_desired_;
+  // Parameters to support aspect ratio preservation w/o padding
+  bool disable_padding_;
+  int64_t input_width_;
+  int64_t input_height_;
 };
 
 }  // namespace image_proc

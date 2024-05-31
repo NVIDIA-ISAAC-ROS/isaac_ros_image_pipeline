@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 #include <string>
 #include <utility>
 
+#include "isaac_ros_common/qos.hpp"
+
 #include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
 
@@ -37,11 +39,11 @@ namespace image_proc
 
 using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
 
-constexpr char INPUT_CAM_COMPONENT_KEY[] = "input_compositor/cam_info_in";
+constexpr char INPUT_CAM_COMPONENT_KEY[] = "sync/camera_info_in";
 constexpr char INPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char INPUT_CAM_TOPIC_NAME[] = "camera_info";
 
-constexpr char INPUT_COMPONENT_KEY[] = "input_compositor/image_in";
+constexpr char INPUT_COMPONENT_KEY[] = "sync/image_in";
 constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char INPUT_TOPIC_NAME[] = "image";
 
@@ -49,7 +51,7 @@ constexpr char OUTPUT_COMPONENT_KEY[] = "image_sink/sink";
 constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char OUTPUT_TOPIC_NAME[] = "resize/image";
 
-constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camerainfo_sink/sink";
+constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camera_info_sink/sink";
 constexpr char OUTPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char OUTPUT_CAM_TOPIC_NAME[] = "resize/camera_info";
 
@@ -59,15 +61,16 @@ constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"isaac_ros_gxf", "gxf/lib/libgxf_message_compositor.so"},
-  {"isaac_ros_image_proc", "gxf/lib/image_proc/libgxf_tensorops.so"},
+  {"gxf_isaac_message_compositor", "gxf/lib/libgxf_isaac_message_compositor.so"},
+  {"gxf_isaac_tensorops", "gxf/lib/libgxf_isaac_tensorops.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
 };
 const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
 const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
-  "config/namespace_injector_rule_resize.yaml",
+  "config/isaac_ros_image_proc_namespace_injector_rule.yaml",
+  "config/resize_substitution_rule.yaml",
 };
 const std::map<gxf::optimizer::ComponentKey, std::string> COMPATIBLE_DATA_FORMAT_MAP = {
   {INPUT_COMPONENT_KEY, INPUT_DEFAULT_TENSOR_FORMAT},
@@ -139,9 +142,27 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
   output_height_(declare_parameter<int64_t>("output_height", 720)),
   num_blocks_(declare_parameter<int64_t>("num_blocks", 40)),
   keep_aspect_ratio_(static_cast<bool>(declare_parameter<bool>("keep_aspect_ratio", false))),
-  encoding_desired_(declare_parameter<std::string>("encoding_desired", ""))
+  encoding_desired_(declare_parameter<std::string>("encoding_desired", "")),
+  disable_padding_(static_cast<bool>(declare_parameter<bool>("disable_padding", false))),
+  input_width_(declare_parameter<int64_t>("input_width", 0)),
+  input_height_(declare_parameter<int64_t>("input_height", 0))
 {
   RCLCPP_DEBUG(get_logger(), "[ResizeNode] Constructor");
+
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos");
+  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos");
+  for (auto & config : config_map_) {
+    if (config.second.topic_name == INPUT_CAM_TOPIC_NAME ||
+      config.second.topic_name == INPUT_TOPIC_NAME)
+    {
+      config.second.qos = input_qos_;
+    } else {
+      config.second.qos = output_qos_;
+    }
+  }
 
   if (output_width_ <= 0 || output_height_ <= 0) {
     RCLCPP_ERROR(
@@ -171,6 +192,18 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
     }
   }
 
+  if (keep_aspect_ratio_ && disable_padding_) {
+    if (input_width_ <= 0 || input_height_ <= 0) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "[ResizeNode] Input Width and height need to be non-zero positive number");
+      throw std::invalid_argument(
+              "[ResizeNode] Invalid input dimension "
+              "Width and height need to be non-zero positive number.");
+    }
+    calculateOutputDims();
+  }
+
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
 
@@ -181,18 +214,37 @@ void ResizeNode::postLoadGraphCallback()
 {
   RCLCPP_INFO(get_logger(), "[ResizeNode] postLoadGraphCallback().");
 
+  const gxf::optimizer::ComponentInfo component = {
+    "nvidia::isaac_ros::MessageRelay",  // component_type_name
+    "sink",                             // component_name
+    "image_sink"                        // entity_name
+  };
+  std::string image_format = getFinalDataFormat(component);
+
+  std::string resize_comp_type_name = "nvidia::isaac::tensor_ops::Resize";
+  if (image_format == "nitros_image_nv12") {
+    resize_comp_type_name = "nvidia::isaac::tensor_ops::StreamResize";
+  }
+
   // Update resize parameters
   getNitrosContext().setParameterUInt64(
-    "imageResizer", "nvidia::isaac::tensor_ops::Resize", "output_width",
+    "imageResizer", resize_comp_type_name, "output_width",
     (uint64_t)output_width_);
 
   getNitrosContext().setParameterUInt64(
-    "imageResizer", "nvidia::isaac::tensor_ops::Resize", "output_height",
+    "imageResizer", resize_comp_type_name, "output_height",
     (uint64_t)output_height_);
 
+  bool keep_aspect_ratio = keep_aspect_ratio_;
+  // If keep_aspect_ratio is true and padding is disabled then
+  // cvcore doesn't have to do output dims calculation i.e pass
+  // keep_aspect_ratio as false.
+  if (keep_aspect_ratio && disable_padding_) {
+    keep_aspect_ratio = false;
+  }
   getNitrosContext().setParameterBool(
-    "imageResizer", "nvidia::isaac::tensor_ops::Resize", "keep_aspect_ratio",
-    keep_aspect_ratio_);
+    "imageResizer", resize_comp_type_name, "keep_aspect_ratio",
+    keep_aspect_ratio);
 
   // The minimum number of memory blocks is set based on the receiver queue capacity
   uint64_t num_blocks = std::max(static_cast<int>(num_blocks_), 40);
@@ -205,12 +257,6 @@ void ResizeNode::postLoadGraphCallback()
     "[ResizeNode] postLoadGraphCallback() with image [%ld x %ld], keep_aspect_ratio: %s.",
     output_width_, output_height_, keep_aspect_ratio_ ? "true" : "false");
 
-  const gxf::optimizer::ComponentInfo component = {
-    "nvidia::isaac_ros::MessageRelay",  // component_type_name
-    "sink",                             // component_name
-    "image_sink"                        // entity_name
-  };
-  std::string image_format = getFinalDataFormat(component);
   uint64_t block_size = calculate_image_size(image_format, output_width_, output_height_);
   RCLCPP_DEBUG(
     get_logger(),
@@ -219,6 +265,20 @@ void ResizeNode::postLoadGraphCallback()
   getNitrosContext().setParameterUInt64(
     "imageResizer", "nvidia::gxf::BlockMemoryPool", "block_size",
     block_size);
+}
+
+void ResizeNode::calculateOutputDims()
+{
+  float height_factor = static_cast<float>(output_height_) / input_height_;
+  float width_factor = static_cast<float>(output_width_) / input_width_;
+  if (height_factor < width_factor) {
+    output_width_ = input_width_ * height_factor;
+    // To make sure output width is even
+    if (output_width_ % 2 != 0) {output_width_++;}
+  } else if (width_factor < height_factor) {
+    output_height_ = input_height_ * width_factor;
+    if (output_height_ % 2 != 0) {output_height_++;}
+  }
 }
 
 ResizeNode::~ResizeNode() {}

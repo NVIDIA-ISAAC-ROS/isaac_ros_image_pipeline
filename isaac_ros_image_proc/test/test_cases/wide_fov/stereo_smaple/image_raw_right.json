@@ -1,0 +1,8 @@
+{
+  "image": "image_raw_right.png",
+  "encoding": "bgr8",
+  "chessboard": {
+    "width": 9,
+    "height": 7
+  }
+}

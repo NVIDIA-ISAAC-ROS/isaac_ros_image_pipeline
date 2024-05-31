@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def generate_test_description():
         plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
         namespace=IsaacROSStereoPipelineTest.generate_namespace(),
         parameters=[{
-                'backends': 'CUDA',
+                'backend': 'CUDA',
                 'max_disparity': MAX_DISPARITY,
         }])
 

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+#include "isaac_ros_common/qos.hpp"
 
 #include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
@@ -58,13 +60,10 @@ constexpr char APP_YAML_FILENAME[] = "config/nitros_point_cloud_xyzrgb_node.yaml
 constexpr char PACKAGE_NAME[] = "isaac_ros_depth_image_proc";
 
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
-  {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
-  {"isaac_ros_gxf", "gxf/lib/multimedia/libgxf_multimedia.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"isaac_ros_stereo_image_proc", "gxf/lib/sgm_disparity/libgxf_sgm.so"},
+  {"gxf_isaac_sgm", "gxf/lib/libgxf_isaac_sgm.so"},
   {"isaac_ros_gxf", "gxf/lib/serialization/libgxf_serialization.so"},
-  {"isaac_ros_gxf", "gxf/lib/libgxf_synchronization.so"},
-  {"isaac_ros_depth_image_proc", "gxf/lib/depth_image_proc/libgxf_depth_image_proc.so"}
+  {"gxf_isaac_depth_image_proc", "gxf/lib/libgxf_isaac_depth_image_proc.so"}
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_point_cloud_xyzrgb",
@@ -124,6 +123,22 @@ PointCloudXyzrgbNode::PointCloudXyzrgbNode(const rclcpp::NodeOptions & options)
   output_width_(declare_parameter<uint16_t>("output_width", 1920))
 {
   RCLCPP_DEBUG(get_logger(), "[PointCloudXyzrgbNode] Constructor");
+
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos");
+  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos");
+  for (auto & config : config_map_) {
+    if (config.second.topic_name == INPUT_DEPTH_TOPIC_NAME ||
+      config.second.topic_name == INPUT_RGB_IMAGE_TOPIC_NAME ||
+      config.second.topic_name == INPUT_CAMERA_INFO_TOPIC_NAME)
+    {
+      config.second.qos = input_qos_;
+    } else {
+      config.second.qos = output_qos_;
+    }
+  }
 
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();

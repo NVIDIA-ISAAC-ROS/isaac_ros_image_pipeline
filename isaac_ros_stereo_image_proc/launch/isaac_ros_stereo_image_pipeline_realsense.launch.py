@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ def generate_launch_description():
         package='isaac_ros_stereo_image_proc',
         plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
         parameters=[{
-                'backends': 'CUDA',
+                'backend': 'CUDA',
                 'max_disparity': 64.0,
         }],
         remappings=[('/left/image_rect', '/left/image_rect_color'),
@@ -68,6 +68,8 @@ def generate_launch_description():
         name='image_format_node_left',
         parameters=[{
                 'encoding_desired': 'bgr8',
+                'image_width': 1280,
+                'image_height': 720
         }],
         remappings=[
             ('image_raw', 'left/image_rect'),
@@ -80,6 +82,8 @@ def generate_launch_description():
         name='image_format_node_right',
         parameters=[{
                 'encoding_desired': 'rgb8',
+                'image_width': 1280,
+                'image_height': 720
         }],
         remappings=[
             ('image_raw', 'right/image_rect'),

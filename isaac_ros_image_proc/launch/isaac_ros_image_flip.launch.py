@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,10 @@ def generate_launch_description():
         name='image_flip_node',
         package='isaac_ros_image_proc',
         plugin='nvidia::isaac_ros::image_proc::ImageFlipNode',
-    )
+        remappings=[
+            ('image', 'hawk_0_left_rgb_image'),
+        ])
+
     image_flip_container = ComposableNodeContainer(
         name='argus_mono_container',
         package='rclcpp_components',

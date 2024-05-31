@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_depth_image_proc</name>
-  <version>2.1.0</version>
+  <version>3.0.0</version>
   <description>Stereo and disparity processing</description>
 
-  <maintainer email="ashwinvk@nvidia.com">Ashwin Varghese Kuruttukulam</maintainer>
+  <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
   <license>Apache-2.0</license>
   <url type="website">https://developer.nvidia.com/isaac-ros-gems/</url>
   <author>Ashwin Varghese Kuruttukulam</author>
@@ -38,6 +38,10 @@ SPDX-License-Identifier: Apache-2.0
   <depend>isaac_ros_nitros_image_type</depend>
   <depend>isaac_ros_nitros_point_cloud_type</depend>
   <depend>isaac_ros_stereo_image_proc</depend>
+  <depend>gxf_isaac_depth_image_proc</depend>
+  <depend>isaac_ros_managed_nitros</depend>
+
+  <exec_depend>gxf_isaac_sgm</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
