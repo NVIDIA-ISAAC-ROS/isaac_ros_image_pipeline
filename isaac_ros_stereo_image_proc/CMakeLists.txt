@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,33 +29,32 @@ ament_auto_find_build_dependencies()
 ament_auto_add_library(point_cloud_node SHARED src/point_cloud_node.cpp)
 rclcpp_components_register_nodes(point_cloud_node "nvidia::isaac_ros::stereo_image_proc::PointCloudNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::PointCloudNode;$<TARGET_FILE:point_cloud_node>\n")
+set_target_properties(point_cloud_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # DisparityNode
 ament_auto_add_library(disparity_node SHARED src/disparity_node.cpp)
 rclcpp_components_register_nodes(disparity_node "nvidia::isaac_ros::stereo_image_proc::DisparityNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::DisparityNode;$<TARGET_FILE:disparity_node>\n")
+set_target_properties(disparity_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # DisparityToDepthNode
 ament_auto_add_library(disparity_to_depth_node SHARED src/disparity_to_depth_node.cpp)
 rclcpp_components_register_nodes(disparity_to_depth_node "nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode;$<TARGET_FILE:disparity_to_depth_node>\n")
-
-### Install extensions built from source
-
-# SGM Disparity
-add_subdirectory(gxf/sgm_disparity)
-install(TARGETS gxf_sgm DESTINATION share/${PROJECT_NAME}/gxf/lib/sgm_disparity)
-
-# Utils(for DisparityToDepthNode)
-add_subdirectory(gxf/utils)
-install(TARGETS gxf_utils DESTINATION share/${PROJECT_NAME}/gxf/lib/utils)
-
-### End extensions
+set_target_properties(disparity_to_depth_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
-
 
   # The FindPythonInterp and FindPythonLibs modules are removed
   if(POLICY CMP0148)

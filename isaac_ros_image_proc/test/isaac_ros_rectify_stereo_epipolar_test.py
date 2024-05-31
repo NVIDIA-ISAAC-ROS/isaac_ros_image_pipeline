@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ def generate_test_description():
         name='rectify_container',
         namespace='',
         package='rclcpp_components',
-        executable='component_container',
+        executable='component_container_mt',
         composable_node_descriptions=composable_nodes,
         output='screen',
         arguments=['--ros-args', '--log-level', 'info'],
@@ -114,25 +114,25 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
             test_folder / 'camera_info_right.json')
 
         # Wait at most TIMEOUT seconds for subscriber to respond
-        TIMEOUT = 2
+        TIMEOUT = 20
         end_time = time.time() + TIMEOUT
 
         done = False
-        while time.time() < end_time:
-            # Synchronize timestamps on both messages
-            timestamp = self.node.get_clock().now().to_msg()
-            image_raw_left.header.stamp = timestamp
-            camera_info_left.header.stamp = timestamp
-            image_raw_right.header.stamp = timestamp
-            camera_info_right.header.stamp = timestamp
+        # Synchronize timestamps on both messages
+        timestamp = self.node.get_clock().now().to_msg()
+        image_raw_left.header.stamp = timestamp
+        camera_info_left.header.stamp = timestamp
+        image_raw_right.header.stamp = timestamp
+        camera_info_right.header.stamp = timestamp
 
+        while time.time() < end_time:
             # Publish test case
             left_image_raw_pub.publish(image_raw_left)
             left_camera_info_pub.publish(camera_info_left)
             right_image_raw_pub.publish(image_raw_right)
             right_camera_info_pub.publish(camera_info_right)
 
-            rclpy.spin_once(self.node, timeout_sec=0.1)
+            rclpy.spin_once(self.node, timeout_sec=0.2)
 
             # If we have received a message on the output topic, break
             if len(received_messages) > 0:
@@ -159,7 +159,7 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
             y_coords_left = [c[0][1] for c in left_corners]
             x_coords_right = [c[0][0] for c in right_corners]
             y_coords_right = [c[0][1] for c in right_corners]
-            if(VISUALIZE):
+            if (VISUALIZE):
                 # Draw lines of the same color at the avergae row value for all corners
                 # in the left and right image
                 cv2.drawChessboardCorners(left_image_rect, left_chessboard_dims,
@@ -189,7 +189,7 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
                          for i in range(min(len(left_corners), len(right_corners)))]
             # Allows test pass if same features are within of 4 pixels in both images
             CORNER_ROW_DIFF_THRESHOLD = 4
-            if(VISUALIZE):
+            if (VISUALIZE):
                 print('CORNER_ROW_DIFF_THRESHOLD :')
                 print(CORNER_ROW_DIFF_THRESHOLD)
                 print('row_diffs :')
@@ -211,7 +211,7 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
             # Create a list of difference betwen the slope and average slope
             mean_slope_diffs = slopes-(sum(slopes) / len(slopes))
             EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD = 0.005
-            if(VISUALIZE):
+            if (VISUALIZE):
                 print('EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD :')
                 print(EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD)
                 print('mean_slope_diffs :')

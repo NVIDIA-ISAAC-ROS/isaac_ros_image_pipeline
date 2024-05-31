@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+#include "isaac_ros_common/qos.hpp"
 
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
 
@@ -51,7 +53,7 @@ constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"isaac_ros_image_proc", "gxf/lib/image_proc/libgxf_tensorops.so"},
+  {"gxf_isaac_tensorops", "gxf/lib/libgxf_isaac_tensorops.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
@@ -111,10 +113,24 @@ ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & o
     GENERATOR_RULE_FILENAMES,
     EXTENSIONS,
     PACKAGE_NAME),
-  encoding_desired_(declare_parameter<std::string>("encoding_desired", ""))
+  encoding_desired_(declare_parameter<std::string>("encoding_desired", "")),
+  image_width_(declare_parameter<int16_t>("image_width", 1280)),
+  image_height_(declare_parameter<int16_t>("image_height", 720))
 {
   RCLCPP_DEBUG(get_logger(), "[ImageFormatConverterNode] Constructor");
 
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos");
+  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos");
+  for (auto & config : config_map_) {
+    if (config.second.topic_name == INPUT_TOPIC_NAME) {
+      config.second.qos = input_qos_;
+    } else {
+      config.second.qos = output_qos_;
+    }
+  }
   if (!encoding_desired_.empty()) {
     auto nitros_format = ROS_2_NITROS_FORMAT_MAP.find(encoding_desired_);
     if (nitros_format == std::end(ROS_2_NITROS_FORMAT_MAP)) {
@@ -142,6 +158,21 @@ ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & o
 void ImageFormatConverterNode::postLoadGraphCallback()
 {
   RCLCPP_INFO(get_logger(), "[ImageFormatConverterNode] postLoadGraphCallback().");
+
+  const gxf::optimizer::ComponentInfo component = {
+    "nvidia::isaac_ros::MessageRelay",  // component_type_name
+    "sink",                             // component_name
+    "sink"                        // entity_name
+  };
+  std::string image_format = getFinalDataFormat(component);
+  uint64_t block_size = calculate_image_size(image_format, image_width_, image_height_);
+  RCLCPP_DEBUG(
+    get_logger(),
+    "[ImageFormatConverterNode] postLoadGraphCallback() block_size = %ld.",
+    block_size);
+  getNitrosContext().setParameterUInt64(
+    "imageConverter", "nvidia::gxf::BlockMemoryPool", "block_size",
+    block_size);
 }
 
 ImageFormatConverterNode::~ImageFormatConverterNode() {}

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@
 #include "isaac_ros_image_proc/image_flip_node.hpp"
 
 #include <string>
+
+#include "isaac_ros_common/qos.hpp"
 
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -45,7 +47,7 @@ constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"isaac_ros_image_proc", "gxf/lib/image_proc/libgxf_image_flip.so"},
+  {"gxf_isaac_image_flip", "gxf/lib/libgxf_isaac_image_flip.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
@@ -93,6 +95,19 @@ ImageFlipNode::ImageFlipNode(const rclcpp::NodeOptions & options)
   flip_mode_(declare_parameter<std::string>("flip_mode", "BOTH"))
 {
   RCLCPP_DEBUG(get_logger(), "[ImageFlipNode] Constructor");
+
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos");
+  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos");
+  for (auto & config : config_map_) {
+    if (config.second.topic_name == INPUT_TOPIC_NAME) {
+      config.second.qos = input_qos_;
+    } else {
+      config.second.qos = output_qos_;
+    }
+  }
 
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
 

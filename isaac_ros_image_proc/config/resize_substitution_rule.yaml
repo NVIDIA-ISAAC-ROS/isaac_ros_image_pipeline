@@ -1,0 +1,46 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+%YAML 1.2
+---
+name: Image Resize Substitution Rule
+operation: substitution
+body:
+  groups:
+    - entities:
+        - components:
+          - type: nvidia::isaac::tensor_ops::Resize
+            parameters:
+              output_width: 400
+              output_height: 300
+              interp_type: "linear"
+              border_type: "zero"
+              keep_aspect_ratio: false
+              receiver: data_receiver
+              transmitter: data_transmitter
+              pool: pool
+              input_adapter: resource/adapter
+              output_adapter: resource/adapter
+              output_name: "image"
+            overriding_parameters: []
+    - entities:
+        - components:
+          - type: nvidia::isaac::tensor_ops::StreamResize
+            parameters:
+              output_width: 400
+              output_height: 300
+              interp_type: "linear"
+              border_type: "zero"
+              keep_aspect_ratio: false
+              receiver: data_receiver
+              transmitter: data_transmitter
+              pool: pool
+              input_adapter: resource/adapter
+              output_adapter: resource/adapter
+              output_name: "image"
+              stream: resource/stream
+            overriding_parameters: []

@@ -1,6 +1,6 @@
 %YAML 1.2
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ components:
 - name: data_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 12
-    policy: 0
+    capacity: 2
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: data_receiver
@@ -30,8 +29,7 @@ components:
 - name: data_transmitter
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
-    capacity: 12
-    policy: 0
+    capacity: 1
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: data_transmitter
@@ -42,6 +40,10 @@ components:
     storage_type: 1
     block_size: 14400000
     num_blocks: 40
+- type: nvidia::gxf::MemoryAvailableSchedulingTerm
+  parameters:
+    allocator: pool
+    min_blocks: 1
 - name: converter
   type: nvidia::isaac::tensor_ops::StreamConvertColorFormat
   parameters:
@@ -60,7 +62,6 @@ components:
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: signal
@@ -92,11 +93,11 @@ name: utils
 components:
 - name: clock
   type: nvidia::gxf::RealtimeClock
-- type: nvidia::gxf::GreedyScheduler
+- type: nvidia::gxf::EventBasedScheduler
   parameters:
     clock: clock
     stop_on_deadlock: false
-    check_recession_period_us: 100
+    worker_thread_number: 2
 - type: nvidia::gxf::JobStatistics
   parameters:
     clock: clock

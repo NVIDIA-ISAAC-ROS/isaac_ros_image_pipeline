@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,22 +29,33 @@ ament_auto_find_build_dependencies()
 ament_auto_add_library(point_cloud_xyz_node SHARED src/point_cloud_xyz_node.cpp)
 rclcpp_components_register_nodes(point_cloud_xyz_node "nvidia::isaac_ros::depth_image_proc::PointCloudXyzNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::depth_image_proc::PointCloudXyzNode;$<TARGET_FILE:point_cloud_xyz_node>\n")
+set_target_properties(point_cloud_xyz_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # PointCloudXyzrgbNode
 ament_auto_add_library(point_cloud_xyzrgb_node SHARED src/point_cloud_xyzrgb_node.cpp)
 rclcpp_components_register_nodes(point_cloud_xyzrgb_node "nvidia::isaac_ros::depth_image_proc::PointCloudXyzrgbNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::depth_image_proc::PointCloudXyzrgbNode;$<TARGET_FILE:point_cloud_xyzrgb_node>\n")
+set_target_properties(point_cloud_xyzrgb_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-### Install extensions built from source
-# depth_image_proc(for DepthToPointCloud)
-add_subdirectory(gxf/depth_image_proc)
-install(TARGETS gxf_depth_image_proc DESTINATION share/${PROJECT_NAME}/gxf/lib/depth_image_proc)
-### End extensions
+# convert_metric_node
+ament_auto_add_library(convert_metric_node SHARED src/convert_metric_node.cpp)
+rclcpp_components_register_nodes(convert_metric_node "nvidia::isaac_ros::depth_image_proc::ConvertMetricNode")
+target_link_libraries(convert_metric_node cvcuda nvcv_types)
+set(node_plugins "${node_plugins}nvidia::isaac_ros::depth_image_proc::ConvertMetricNode;$<TARGET_FILE:convert_metric_node>\n")
+set_target_properties(convert_metric_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
-
 
   # The FindPythonInterp and FindPythonLibs modules are removed
   if(POLICY CMP0148)
@@ -56,6 +67,7 @@ if(BUILD_TESTING)
   add_launch_test(test/isaac_ros_depth_image_proc_point_cloud_xyz_OSS_compare.py)
   add_launch_test(test/isaac_ros_depth_image_proc_point_cloud_xyzrgb_pol.py)
   add_launch_test(test/isaac_ros_depth_image_proc_point_cloud_xyzrgb_OSS_compare.py)
+  add_launch_test(test/isaac_ros_depth_image_proc_convert_metric_pol.py)
 endif()
 
-ament_auto_package(INSTALL_TO_SHARE config)
+ament_auto_package(INSTALL_TO_SHARE launch config)

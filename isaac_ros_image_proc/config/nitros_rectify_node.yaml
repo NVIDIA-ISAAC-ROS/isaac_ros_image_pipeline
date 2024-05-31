@@ -16,13 +16,51 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 ---
+name: sync
+components:
+- name: image_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 4
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: image_in
+    min_size: 1
+- name: camera_info_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 4
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: camera_info_in
+    min_size: 1
+- name: image_out
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: image_out
+    min_size: 1
+- name: camera_info_out
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 1
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: camera_info_out
+    min_size: 1
+- type: nvidia::gxf::Synchronization
+  parameters:
+    inputs: [image_in, camera_info_in]
+    outputs: [image_out, camera_info_out]
+---
 name: input_compositor
 components:
 - name: image_in
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: image_in
@@ -31,7 +69,6 @@ components:
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: cam_info_in
@@ -40,7 +77,6 @@ components:
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: out
@@ -57,8 +93,7 @@ components:
 - name: data_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 12
-    policy: 0
+    capacity: 1
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: data_receiver
@@ -66,8 +101,7 @@ components:
 - name: data_transmitter
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
-    capacity: 12
-    policy: 0
+    capacity: 1
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: data_transmitter
@@ -130,8 +164,7 @@ components:
 - name: data_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 2
-    policy: 0
+    capacity: 1
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: data_receiver
@@ -140,7 +173,6 @@ components:
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: image_transmitter
@@ -149,7 +181,6 @@ components:
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: camera_model_transmitter
@@ -167,7 +198,6 @@ components:
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: signal
@@ -177,13 +207,12 @@ components:
   parameters:
     source: signal
 ---
-name: camerainfo_sink
+name: camera_info_sink
 components:
 - name: signal
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 1
-    policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: signal
@@ -208,6 +237,14 @@ components:
 components:
 - type: nvidia::gxf::Connection
   parameters:
+    source: sync/image_out
+    target: input_compositor/image_in
+- type: nvidia::gxf::Connection
+  parameters:
+    source: sync/camera_info_out
+    target: input_compositor/cam_info_in
+- type: nvidia::gxf::Connection
+  parameters:
     source: input_compositor/out
     target: rectifier/data_receiver
 - type: nvidia::gxf::Connection
@@ -221,17 +258,16 @@ components:
 - type: nvidia::gxf::Connection
   parameters:
     source: splitter/camera_model_transmitter
-    target: camerainfo_sink/signal
+    target: camera_info_sink/signal
 ---
 name: utils
 components:
 - name: clock
   type: nvidia::gxf::RealtimeClock
-- type: nvidia::gxf::MultiThreadScheduler
+- type: nvidia::gxf::EventBasedScheduler
   parameters:
     clock: clock
     stop_on_deadlock: false
-    check_recession_period_ms: 1
     worker_thread_number: 2
 - type: nvidia::gxf::JobStatistics
   parameters:
