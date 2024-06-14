@@ -32,10 +32,10 @@ def generate_launch_description():
                 'backend': 'CUDA',
                 'max_disparity': 64.0,
         }],
-        remappings=[('left/image_rect', 'front_stereo_camera/left_rgb/image_raw'),
-                    ('left/camera_info', 'front_stereo_camera/left_rgb/camerainfo'),
-                    ('right/image_rect', 'front_stereo_camera/right_rgb/image_raw'),
-                    ('right/camera_info', 'front_stereo_camera/right_rgb/camerainfo')
+        remappings=[('left/image_rect', 'front_stereo_camera/left/image_rect_color'),
+                    ('left/camera_info', 'front_stereo_camera/left/camera_info'),
+                    ('right/image_rect', 'front_stereo_camera/right/image_rect_color'),
+                    ('right/camera_info', 'front_stereo_camera/right/camera_info')
                     ]
     )
 
@@ -46,9 +46,9 @@ def generate_launch_description():
                 'use_color': True,
                 'unit_scaling': 1.0
         }],
-        remappings=[('left/image_rect_color', 'front_stereo_camera/left_rgb/image_raw'),
-                    ('left/camera_info', 'front_stereo_camera/left_rgb/camerainfo'),
-                    ('right/camera_info', 'front_stereo_camera/right_rgb/camerainfo')
+        remappings=[('left/image_rect_color', 'front_stereo_camera/left/image_rect_color'),
+                    ('left/camera_info', 'front_stereo_camera/left/camera_info'),
+                    ('right/camera_info', 'front_stereo_camera/right/camera_info')
                     ]
     )
 
@@ -56,7 +56,7 @@ def generate_launch_description():
         name='disparity_container',
         namespace='disparity',
         package='rclcpp_components',
-        executable='component_container',
+        executable='component_container_mt',
         composable_node_descriptions=[disparity_node, pointcloud_node],
         output='screen'
     )
