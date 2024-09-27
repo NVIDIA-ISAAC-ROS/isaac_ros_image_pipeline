@@ -24,6 +24,12 @@ from launch_ros.descriptions import ComposableNode
 class IsaacROSResizeLaunchFragment(IsaacROSLaunchFragment):
 
     @staticmethod
+    def get_interface_specs() -> Dict[str, Any]:
+        return {
+            'resize': {'width': 480, 'height': 288},
+        }
+
+    @staticmethod
     def get_composable_nodes(interface_specs: Dict[str, Any]) -> Dict[str, ComposableNode]:
         return {
             'resize_node': ComposableNode(
@@ -31,8 +37,8 @@ class IsaacROSResizeLaunchFragment(IsaacROSLaunchFragment):
                 plugin='nvidia::isaac_ros::image_proc::ResizeNode',
                 name='resize',
                 parameters=[{
-                    'output_width': 480,
-                    'output_height': 288,
+                    'output_width': interface_specs['resize']['width'],
+                    'output_height': interface_specs['resize']['height'],
                 }],
                 remappings=[
                     ('image', 'image_raw'),
