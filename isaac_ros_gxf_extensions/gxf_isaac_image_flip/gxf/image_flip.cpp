@@ -17,15 +17,15 @@
 
 #include "image_flip.hpp"
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "gxf/multimedia/video.hpp"
 #include "gxf/std/timestamp.hpp"
 
-namespace nvidia
-{
-namespace isaac_ros
-{
+namespace nvidia {
+namespace isaac_ros {
 
 #define CHECK_VPI_STATUS(STMT) \
   do { \
@@ -35,7 +35,7 @@ namespace isaac_ros
       vpiGetLastStatusMessage(buffer, sizeof(buffer)); \
       std::ostringstream ss; \
       ss << __FILE__ << ":" << __LINE__ << ": " << vpiStatusGetName(status) << ": " << buffer; \
-      GXF_LOG_ERROR(ss.str().c_str()); \
+      GXF_LOG_ERROR("%s", ss.str().c_str()); \
       return GXF_FAILURE; \
     } \
   } while (0);
@@ -50,14 +50,12 @@ const std::unordered_map<std::string, uint32_t> kStrToVpiBackend({{"CPU", VPI_BA
 const std::unordered_map<std::string, VPIFlipMode> kStrToVpiFlipMode(
   {{"HORIZONTAL", VPI_FLIP_HORIZ}, {"VERTICAL", VPI_FLIP_VERT}, {"BOTH", VPI_FLIP_BOTH}});
 
-struct VPIFormat
-{
+struct VPIFormat {
   VPIImageFormat image_format;
   std::vector<VPIPixelType> pixel_type;
 };
 
-VPIFormat ToVpiFormat(VideoFormat value)
-{
+VPIFormat ToVpiFormat(VideoFormat value) {
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wpedantic"
   switch (value) {
@@ -95,8 +93,7 @@ VPIFormat ToVpiFormat(VideoFormat value)
 
 VPIStatus CreateVPIImageWrapper(
   VPIImage & vpi_image, VPIImageData & img_data, uint64_t flags,
-  const nvidia::gxf::Handle<nvidia::gxf::VideoBuffer> & video_buff)
-{
+  const nvidia::gxf::Handle<nvidia::gxf::VideoBuffer> & video_buff) {
   nvidia::gxf::VideoBufferInfo image_info = video_buff->video_frame_info();
   VPIFormat vpi_format = ToVpiFormat(image_info.color_format);
   img_data.bufferType = VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR;
@@ -117,8 +114,7 @@ VPIStatus CreateVPIImageWrapper(
 
 VPIStatus UpdateVPIImageWrapper(
   VPIImage & image, VPIImageData & imageWrap,
-  const nvidia::gxf::Handle<nvidia::gxf::VideoBuffer> & video_buff)
-{
+  const nvidia::gxf::Handle<nvidia::gxf::VideoBuffer> & video_buff) {
   nvidia::gxf::VideoBufferInfo image_info = video_buff->video_frame_info();
   auto data_ptr_offset = 0;
   for (size_t i = 0; i < image_info.color_planes.size(); ++i) {
@@ -128,8 +124,7 @@ VPIStatus UpdateVPIImageWrapper(
   return vpiImageSetWrapper(image, &imageWrap);
 }
 
-gxf_result_t ImageFlip::registerInterface(gxf::Registrar * registrar)
-{
+gxf_result_t ImageFlip::registerInterface(gxf::Registrar * registrar) {
   gxf::Expected<void> result;
 
   result &= registrar->parameter(
@@ -157,8 +152,7 @@ gxf_result_t ImageFlip::registerInterface(gxf::Registrar * registrar)
   return gxf::ToResultCode(result);
 }
 
-gxf_result_t ImageFlip::start()
-{
+gxf_result_t ImageFlip::start() {
   // Set and print out backend used
   auto backend_it = kStrToVpiBackend.find(vpi_backends_param_.get());
   if (backend_it != kStrToVpiBackend.end()) {
@@ -188,8 +182,7 @@ gxf_result_t ImageFlip::start()
   return GXF_SUCCESS;
 }
 
-gxf_result_t ImageFlip::tick()
-{
+gxf_result_t ImageFlip::tick() {
   auto maybe_input_message = image_receiver_->receive();
   if (!maybe_input_message) {
     GXF_LOG_ERROR("Failed to receive image message");
@@ -291,8 +284,7 @@ gxf_result_t ImageFlip::tick()
   return GXF_SUCCESS;
 }
 
-gxf_result_t ImageFlip::stop()
-{
+gxf_result_t ImageFlip::stop() {
   if (!vpi_stream_) {CHECK_VPI_STATUS(vpiStreamSync(vpi_stream_));}
   vpiStreamDestroy(vpi_stream_);
   vpiImageDestroy(input_);

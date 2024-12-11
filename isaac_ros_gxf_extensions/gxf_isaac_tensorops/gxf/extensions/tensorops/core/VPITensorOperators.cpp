@@ -241,6 +241,15 @@ std::error_code VPITensorStream::Resize(Image<BGR_U8>& outputImage,
     return err_code;
 }
 
+std::error_code VPITensorStream::Resize(Image<BGRA_U8>& outputImage,
+    const Image<BGRA_U8>& inputImage, InterpolationType interpolation, BorderType border) {
+    std::unique_lock<decltype(m_fence)> scopedLock{m_fence};
+    std::error_code err_code;
+    err_code = m_resizer->execute<BGRA_U8>(outputImage, inputImage,
+        interpolation, border, m_stream, m_backend);
+    return err_code;
+}
+
 std::error_code VPITensorStream::Resize(Image<NV24>& outputImage,
     const Image<NV24>& inputImage, InterpolationType interpolation, BorderType border) {
     std::unique_lock<decltype(m_fence)> scopedLock{m_fence};

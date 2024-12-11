@@ -67,7 +67,7 @@ def generate_launch_description():
         plugin='nvidia::isaac_ros::image_proc::ImageFormatConverterNode',
         name='image_format_node_left',
         parameters=[{
-                'encoding_desired': 'bgr8',
+                'encoding_desired': 'rgb8',
                 'image_width': 1280,
                 'image_height': 720
         }],

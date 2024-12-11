@@ -50,6 +50,11 @@ public:
 private:
   int16_t output_width_;
   int16_t output_height_;
+  int64_t num_blocks_;
+  int16_t horizontal_interval_;
+  int16_t vertical_interval_;
+  std::string interpolation_;
+  std::string border_type_;
 };
 
 }  // namespace image_proc

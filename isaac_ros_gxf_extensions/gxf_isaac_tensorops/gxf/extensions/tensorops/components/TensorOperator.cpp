@@ -285,6 +285,17 @@ gxf_result_t TensorOperator::tick() {
   if (error != GXF_SUCCESS) {
     return error;
   }
+  // Pass through imu extrinsics message if necessary
+  error = RerouteMessage<gxf::Pose3D>(
+    output_message.value(), input_message.value(),
+    [](gxf::Handle<gxf::Pose3D> output, gxf::Handle<gxf::Pose3D> input) {
+      *output = *input;
+      return GXF_SUCCESS;
+    },
+    "imu_extrinsics");
+  if (error != GXF_SUCCESS) {
+    return error;
+  }
   // Send the processed data
   transmitter_->publish(output_message.value());
 

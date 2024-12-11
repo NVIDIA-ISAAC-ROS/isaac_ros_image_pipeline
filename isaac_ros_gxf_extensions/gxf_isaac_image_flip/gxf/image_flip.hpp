@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #ifndef NVIDIA_ISAAC_ROS_EXTENSIONS_IMAGE_FLIP_HPP_
 #define NVIDIA_ISAAC_ROS_EXTENSIONS_IMAGE_FLIP_HPP_
 
@@ -29,25 +30,22 @@
 #include "gxf/std/receiver.hpp"
 #include "gxf/std/transmitter.hpp"
 
-#include "vpi/VPI.h"
 #include "vpi/algo/ConvertImageFormat.h"
 #include "vpi/algo/ImageFlip.h"
+#include "vpi/VPI.h"
 
-namespace nvidia
-{
-namespace isaac_ros
-{
+namespace nvidia {
+namespace isaac_ros {
 // GXF codelet that subscribes image using videobuffer,
 // then publishes a flipped image
-class ImageFlip : public gxf::Codelet
-{
-public:
+class ImageFlip : public gxf::Codelet {
+ public:
   gxf_result_t start() override;
   gxf_result_t tick() override;
   gxf_result_t stop() override;
   gxf_result_t registerInterface(gxf::Registrar * registrar) override;
 
-private:
+ private:
   // The name of the input image
   gxf::Parameter<std::string> image_name_;
   // The name of the output video buffer

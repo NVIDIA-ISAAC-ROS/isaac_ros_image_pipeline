@@ -68,6 +68,7 @@ const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
 };
 const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
+
 const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
   "config/isaac_ros_image_proc_namespace_injector_rule.yaml",
   "config/resize_substitution_rule.yaml",
@@ -120,8 +121,10 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
 namespace img_encodings = sensor_msgs::image_encodings;
 const std::unordered_map<std::string, std::string> ROS_2_NITROS_FORMAT_MAP({
         {img_encodings::RGB8, nitros::nitros_image_rgb8_t::supported_type_name},
+        {img_encodings::RGBA8, nitros::nitros_image_rgba8_t::supported_type_name},
         {img_encodings::RGB16, nitros::nitros_image_rgb16_t::supported_type_name},
         {img_encodings::BGR8, nitros::nitros_image_bgr8_t::supported_type_name},
+        {img_encodings::BGRA8, nitros::nitros_image_bgra8_t::supported_type_name},
         {img_encodings::BGR16, nitros::nitros_image_bgr16_t::supported_type_name},
         {img_encodings::MONO8, nitros::nitros_image_mono8_t::supported_type_name},
         {img_encodings::MONO16, nitros::nitros_image_mono16_t::supported_type_name},
@@ -222,7 +225,9 @@ void ResizeNode::postLoadGraphCallback()
   std::string image_format = getFinalDataFormat(component);
 
   std::string resize_comp_type_name = "nvidia::isaac::tensor_ops::Resize";
-  if (image_format == "nitros_image_nv12") {
+  if (image_format == "nitros_image_nv12" || image_format == "nitros_image_bgra8" ||
+    image_format == "nitros_image_bgra8")
+  {
     resize_comp_type_name = "nvidia::isaac::tensor_ops::StreamResize";
   }
 

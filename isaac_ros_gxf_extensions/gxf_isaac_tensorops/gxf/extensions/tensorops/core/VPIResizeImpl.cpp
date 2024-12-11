@@ -103,6 +103,10 @@ template std::error_code VPITensorStream::VPIResizeImpl::execute(Image<RGBA_U8>&
     const Image<RGBA_U8>& inputImage,
     InterpolationType interpolation, BorderType border,
     VPIStream& stream, VPIBackend backend);
+template std::error_code VPITensorStream::VPIResizeImpl::execute(Image<BGRA_U8>& outputImage,
+    const Image<BGRA_U8>& inputImage,
+    InterpolationType interpolation, BorderType border,
+    VPIStream& stream, VPIBackend backend);
 template std::error_code VPITensorStream::VPIResizeImpl::execute(Image<BGR_U8>& outputImage,
     const Image<BGR_U8>& inputImage,
     InterpolationType interpolation, BorderType border,

@@ -116,7 +116,7 @@ class IsaacROSImageProcPadNodeTest(IsaacROSBaseTest):
 
             padded_image_cv2 = CvBridge().imgmsg_to_cv2(padded_image, 'bgr8')
             data_matched = False
-            if((padded_image_cv2[100:, 0:100, :] == cv_image[:, :, :]).all()):
+            if ((padded_image_cv2[100:, 0:100, :] == cv_image[:, :, :]).all()):
                 data_matched = True
             self.assertTrue(data_matched,
                             "The data didn't get copied correctly to bottom left corner.")

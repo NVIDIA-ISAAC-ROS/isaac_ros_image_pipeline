@@ -16,13 +16,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
-#include "image_format_converter_node.hpp"
+#include "alpha_blend_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown
 // Approach: send Invalid Arguments for node parameters to trigger the exception
 
-class ImageFormatConverterNodeTestSuite : public ::testing::Test
+class AlphaBlendNodeTestSuite : public ::testing::Test
 {
 protected:
   void SetUp() {rclcpp::init(0, nullptr);}
@@ -30,19 +30,38 @@ protected:
 };
 
 
-void test_unsupported_encoding_desired()
+void test_negative_alpha()
 {
   rclcpp::NodeOptions options;
   options.arguments(
   {
     "--ros-args",
-    "-p", "encoding_desired:='ENCODING_DESIRED'",
+    "-p", "alpha:=-0.1",
   });
   try {
-    nvidia::isaac_ros::image_proc::ImageFormatConverterNode image_format_converter_node(options);
+    nvidia::isaac_ros::image_proc::AlphaBlendNode alpha_blend_node(options);
   } catch (const std::invalid_argument & e) {
     std::string err(e.what());
-    if (err.find("Unsupported encoding") != std::string::npos) {
+    if (err.find("Invalid alpha") != std::string::npos) {
+      _exit(1);
+    }
+  }
+  _exit(0);
+}
+
+void test_alpha_larger_than_one()
+{
+  rclcpp::NodeOptions options;
+  options.arguments(
+  {
+    "--ros-args",
+    "-p", "alpha:=1.1",
+  });
+  try {
+    nvidia::isaac_ros::image_proc::AlphaBlendNode alpha_blend_node(options);
+  } catch (const std::invalid_argument & e) {
+    std::string err(e.what());
+    if (err.find("Invalid alpha") != std::string::npos) {
       _exit(1);
     }
   }
@@ -50,9 +69,14 @@ void test_unsupported_encoding_desired()
 }
 
 
-TEST_F(ImageFormatConverterNodeTestSuite, test_unsupported_encoding_desired)
+TEST_F(AlphaBlendNodeTestSuite, test_negative_alpha)
 {
-  EXPECT_EXIT(test_unsupported_encoding_desired(), testing::ExitedWithCode(1), "");
+  EXPECT_EXIT(test_negative_alpha(), testing::ExitedWithCode(1), "");
+}
+
+TEST_F(AlphaBlendNodeTestSuite, test_alpha_larger_than_one)
+{
+  EXPECT_EXIT(test_alpha_larger_than_one(), testing::ExitedWithCode(1), "");
 }
 
 

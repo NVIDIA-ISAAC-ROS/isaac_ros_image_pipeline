@@ -117,7 +117,7 @@ class IsaacROSImageProcPadNodeTest(IsaacROSBaseTest):
 
             padded_image_cv2 = CvBridge().imgmsg_to_cv2(padded_image, 'bgr8')
             data_matched = False
-            if((padded_image_cv2[50:150, 50:150, :] == cv_image[:, :, :]).all() and
+            if ((padded_image_cv2[50:150, 50:150, :] == cv_image[:, :, :]).all() and
                (padded_image_cv2[0:50, :, :] == (0, 0, 0)).all() and
                (padded_image_cv2[150:, :, :] == (0, 0, 0)).all() and
                (padded_image_cv2[:, :50, :] == (0, 0, 0)).all() and

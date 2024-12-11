@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_image_proc</name>
-  <version>3.1.0</version>
+  <version>3.2.0</version>
   <description>Single image rectification and color processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -33,6 +33,7 @@ SPDX-License-Identifier: Apache-2.0
   <author>Tao Zhang</author>
   <author>Tobi Alade</author>
   <author>Shubham Tyagi</author>
+  <author>Toya Takahashi</author>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
@@ -44,6 +45,7 @@ SPDX-License-Identifier: Apache-2.0
   <depend>isaac_ros_nitros_tensor_list_type</depend>
   <depend>gxf_isaac_messages</depend>
   <depend>isaac_ros_managed_nitros</depend>
+  <depend>message_filters</depend>
 
   <build_depend>isaac_ros_common</build_depend>
   <build_depend>gxf_isaac_gems</build_depend>

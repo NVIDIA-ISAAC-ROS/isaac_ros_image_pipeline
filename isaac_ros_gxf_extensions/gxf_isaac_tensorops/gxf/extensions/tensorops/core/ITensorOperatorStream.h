@@ -116,6 +116,13 @@ class ITensorOperatorStream {
         throw NotImplementedException();
         return make_error_code(ErrorCode::NOT_IMPLEMENTED);
     }
+    virtual std::error_code Resize(Image<BGRA_U8> & outputImage,
+        const Image<BGRA_U8> & inputImage,
+        InterpolationType interpolation = INTERP_LINEAR,
+        BorderType border = BORDER_ZERO) {
+        throw NotImplementedException();
+        return make_error_code(ErrorCode::NOT_IMPLEMENTED);
+    }
     virtual std::error_code Resize(Image<NV24> & outputImage,
         const Image<NV24> & inputImage,
         InterpolationType interpolation = INTERP_LINEAR,

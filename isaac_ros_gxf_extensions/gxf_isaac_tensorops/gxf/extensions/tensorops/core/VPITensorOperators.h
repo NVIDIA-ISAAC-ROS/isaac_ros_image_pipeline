@@ -225,6 +225,8 @@ class VPITensorStream : public ITensorOperatorStream {
         InterpolationType interpolation, BorderType border) override;
     std::error_code Resize(Image<BGR_U8> & outputImage, const Image<BGR_U8> & inputImage,
         InterpolationType interpolation, BorderType border) override;
+    std::error_code Resize(Image<BGRA_U8> & outputImage, const Image<BGRA_U8> & inputImage,
+        InterpolationType interpolation, BorderType border) override;
     std::error_code Resize(Image<Y_U8> & outputImage, const Image<Y_U8> & inputImage,
         InterpolationType interpolation, BorderType border) override;
 

@@ -273,9 +273,7 @@ gxf::Expected<void> RectifyParamsGenerator::computeRectifyParams(
     rectify_intrinsics_[i].dimensions = left_camera_intrinsics.dimensions;
 
     rectify_intrinsics_[i].distortion_type = gxf::DistortionType::Perspective;
-    memset(rectify_intrinsics_[i].distortion_coefficients, 0,
-        rectify_intrinsics_[i].kMaxDistortionCoefficients * sizeof(float));
-
+    rectify_intrinsics_[i].distortion_coefficients = {0};
     rectify_intrinsics_[i].focal_length.x = P[i](0, 0);
     rectify_intrinsics_[i].focal_length.y = P[i](0, 5);
     rectify_intrinsics_[i].principal_point.x = P[i](0, 2);

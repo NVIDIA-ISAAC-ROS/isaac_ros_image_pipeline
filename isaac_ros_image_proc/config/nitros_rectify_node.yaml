@@ -143,8 +143,8 @@ components:
     output_camera_model: output_camera
     regions_width: [1280]
     regions_height: [800]
-    horizontal_intervals: [4]
-    vertical_intervals: [4]
+    horizontal_intervals: [1]
+    vertical_intervals: [1]
     interp_type: "cubic_catmullrom"
     border_type: "zero"
     receiver: data_receiver
