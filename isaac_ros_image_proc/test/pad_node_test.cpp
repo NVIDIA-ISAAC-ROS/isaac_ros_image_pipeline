@@ -16,13 +16,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
-#include "resize_node.hpp"
+#include "pad_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown
 // Approach: send Invalid Arguments for node parameters to trigger the exception
 
-class ResizeNodeTestSuite : public ::testing::Test
+class PadNodeTestSuite : public ::testing::Test
 {
 protected:
   void SetUp() {rclcpp::init(0, nullptr);}
@@ -30,80 +30,80 @@ protected:
 };
 
 
-void test_unsupported_encoding()
+void test_unsupported_padding_type()
 {
   rclcpp::NodeOptions options;
   options.arguments(
   {
     "--ros-args",
-    "-p", "output_width:=1080",
-    "-p", "output_height:=720",
-    "-p", "encoding_desired:='unsupported'",
+    "-p", "padding_type:='INVALID'",
   });
   try {
-    nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
+    nvidia::isaac_ros::image_proc::PadNode pad_node(options);
   } catch (const std::invalid_argument & e) {
     std::string err(e.what());
-    if (err.find("Unsupported encoding") != std::string::npos) {
+    if (err.find("Unsupported padding type") != std::string::npos) {
       _exit(1);
     }
   }
   _exit(0);
 }
 
-void test_invalid_output_dimension()
+void test_unsupported_border_type()
 {
   rclcpp::NodeOptions options;
   options.arguments(
   {
     "--ros-args",
-    "-p", "output_height:=-1",
+    "-p", "padding_type:='CENTER'",
+    "-p", "border_type:='INVALID'",
   });
   try {
-    nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
+    nvidia::isaac_ros::image_proc::PadNode pad_node(options);
   } catch (const std::invalid_argument & e) {
     std::string err(e.what());
-    if (err.find("Invalid output dimension") != std::string::npos) {
+    if (err.find("Unsupported border type") != std::string::npos) {
       _exit(1);
     }
   }
   _exit(0);
 }
 
-void test_invalid_input_dimension()
+void test_invalid_border_pixel_channel_values()
 {
   rclcpp::NodeOptions options;
   options.arguments(
   {
     "--ros-args",
-    "-p", "keep_aspect_ratio:=True",
-    "-p", "disable_padding:=True",
-    "-p", "input_width:=-1",
+    "-p", "padding_type:='CENTER'",
+    "-p", "border_type:='CONSTANT'",
+    "-p", "border_pixel_color_value:=[0.0, 0.0, 0.0]",
   });
   try {
-    nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
+    nvidia::isaac_ros::image_proc::PadNode pad_node(options);
   } catch (const std::invalid_argument & e) {
     std::string err(e.what());
-    if (err.find("Invalid input dimension") != std::string::npos) {
+    if (err.find("Invalid length of border_pixel_channel_values") != std::string::npos) {
       _exit(1);
     }
   }
   _exit(0);
 }
 
-TEST_F(ResizeNodeTestSuite, test_unsupported_encoding)
+
+TEST_F(PadNodeTestSuite, test_unsupported_padding_type)
 {
-  EXPECT_EXIT(test_unsupported_encoding(), testing::ExitedWithCode(1), "");
+  EXPECT_EXIT(test_unsupported_padding_type(), testing::ExitedWithCode(1), "");
 }
 
-TEST_F(ResizeNodeTestSuite, test_invalid_output_dimension)
+TEST_F(PadNodeTestSuite, test_unsupported_border_type)
 {
-  EXPECT_EXIT(test_invalid_output_dimension(), testing::ExitedWithCode(1), "");
+  EXPECT_EXIT(test_unsupported_border_type(), testing::ExitedWithCode(1), "");
 }
 
-TEST_F(ResizeNodeTestSuite, test_invalid_input_dimension)
+TEST_F(PadNodeTestSuite, test_invalid_border_pixel_channel_values)
 {
-  EXPECT_EXIT(test_invalid_input_dimension(), testing::ExitedWithCode(1), "");
+  EXPECT_EXIT(test_invalid_border_pixel_channel_values(), testing::ExitedWithCode(1), "");
 }
 
 

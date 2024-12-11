@@ -152,8 +152,8 @@ class IsaacROSWideFOVTest(IsaacROSBaseTest):
 
         received_messages = []
         self.create_exact_time_sync_logging_subscribers(
-                [('left_image_crop', Image), ('right_image_crop', Image)], received_messages,
-                accept_multiple_messages=True)
+            [('left_image_crop', Image), ('right_image_crop', Image)], received_messages,
+            accept_multiple_messages=True)
 
         image_raw_left, left_chessboard_dims = JSONConversion.load_chessboard_image_from_json(
             test_folder / 'image_raw_left.json')
@@ -223,7 +223,7 @@ class IsaacROSWideFOVTest(IsaacROSBaseTest):
             x_coords_right = [c[0][0] for c in right_corners]
             y_coords_right = [c[0][1] for c in right_corners]
 
-            if(VISUALIZE):
+            if (VISUALIZE):
                 # Draw lines of the same color at the avergae row value for all corners
                 # in the left and right image
                 cv2.drawChessboardCorners(left_image_rect, left_chessboard_dims,
@@ -233,7 +233,7 @@ class IsaacROSWideFOVTest(IsaacROSBaseTest):
 
                 # Draw randomly colored lines connecting the corresponding corners
                 for i in range(min(len(left_corners), len(right_corners))):
-                    average_y = (y_coords_left[i]+y_coords_right[i])/2
+                    average_y = (y_coords_left[i] + y_coords_right[i]) / 2
                     pt1 = (0, int(average_y))
                     pt2 = (left_image_rect.shape[1], int(average_y))
                     random_color = (random.randint(0, 255),
@@ -254,7 +254,7 @@ class IsaacROSWideFOVTest(IsaacROSBaseTest):
                          for i in range(min(len(left_corners), len(right_corners)))]
             # Allows test pass if same features are within of 4 pixels in both images
             CORNER_ROW_DIFF_THRESHOLD = 4
-            if(VISUALIZE):
+            if (VISUALIZE):
                 print('CORNER_ROW_DIFF_THRESHOLD :')
                 print(CORNER_ROW_DIFF_THRESHOLD)
                 print('row_diffs :')
@@ -271,12 +271,13 @@ class IsaacROSWideFOVTest(IsaacROSBaseTest):
             This test checks if these lines(epipolar lines) are parallel
             """
             # Compute the slopes of lines between corresponding corners
-            slopes = [(y_coords_right[i]-y_coords_left[i])/(x_coords_right[i]-x_coords_left[i])
+            slopes = [(y_coords_right[i] - y_coords_left[i]) /
+                      (x_coords_right[i] - x_coords_left[i])
                       for i in range(min(len(left_corners), len(right_corners)))]
             # Create a list of difference betwen the slope and average slope
-            mean_slope_diffs = slopes-(sum(slopes) / len(slopes))
+            mean_slope_diffs = slopes - (sum(slopes) / len(slopes))
             EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD = 0.005
-            if(VISUALIZE):
+            if (VISUALIZE):
                 print('EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD :')
                 print(EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD)
                 print('mean_slope_diffs :')

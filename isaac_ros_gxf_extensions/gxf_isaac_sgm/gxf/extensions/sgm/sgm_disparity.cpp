@@ -348,10 +348,10 @@ gxf_result_t SGMDisparity::tick() {
 
   // Convert input-format images to stereo-format images
   RETURN_IF_ERROR(CheckStatus(vpiSubmitConvertImageFormat(
-      impl_->stream, backend_for_rescale, impl_->left_input.getImage(), impl_->left_formatted,
+      impl_->stream, VPI_BACKEND_CUDA, impl_->left_input.getImage(), impl_->left_formatted,
       NULL)));
   RETURN_IF_ERROR(CheckStatus(vpiSubmitConvertImageFormat(
-      impl_->stream, backend_for_rescale, impl_->right_input.getImage(), impl_->right_formatted,
+      impl_->stream, VPI_BACKEND_CUDA, impl_->right_input.getImage(), impl_->right_formatted,
       NULL)));
 
   // There's possibly a bug in VPI, without this sync there's a error trying to

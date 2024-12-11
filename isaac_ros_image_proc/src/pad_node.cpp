@@ -36,6 +36,8 @@ namespace
 const std::unordered_map<std::string, nvcv::ImageFormat> kStringEncToNVCVImageFormatMap({
           {sensor_msgs::image_encodings::RGB8, nvcv::FMT_RGB8},
           {sensor_msgs::image_encodings::BGR8, nvcv::FMT_BGR8},
+          {sensor_msgs::image_encodings::RGBA8, nvcv::FMT_RGBA8},
+          {sensor_msgs::image_encodings::BGRA8, nvcv::FMT_BGRA8},
           {sensor_msgs::image_encodings::MONO8, nvcv::FMT_U8},
           {sensor_msgs::image_encodings::TYPE_32FC3, nvcv::FMT_RGBf32},
           {sensor_msgs::image_encodings::TYPE_32FC1, nvcv::FMT_F32}
@@ -129,15 +131,18 @@ void checkCudaErrors(cudaError_t err)
 
 PadNode::PadNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("padding_node", options),
+  input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
+  output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
   nitros_sub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosImageView>>(
       this, "image", nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
       std::bind(&PadNode::InputCallback, this,
-      std::placeholders::_1))},
+      std::placeholders::_1), nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, input_qos_)},
   nitros_pub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
         nvidia::isaac_ros::nitros::NitrosImage>>(
       this, "padded_image",
-      nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name)},
+      nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
+      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_)},
   output_image_width_(declare_parameter<uint16_t>("output_image_width", 1200)),
   output_image_height_(declare_parameter<uint16_t>("output_image_height", 1024)),
   padding_type_(declare_parameter<std::string>("padding_type", "CENTER")),

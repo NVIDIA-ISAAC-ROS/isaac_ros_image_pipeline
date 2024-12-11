@@ -56,13 +56,13 @@ ConvertMetricNode::ConvertMetricNode(const rclcpp::NodeOptions options)
         ::nvidia::isaac_ros::nitros::NitrosImageView>>(
       this, "image_raw", ::nvidia::isaac_ros::nitros::nitros_image_mono16_t::supported_type_name,
       std::bind(&ConvertMetricNode::DepthCallback, this,
-      std::placeholders::_1), nvidia::isaac_ros::nitros::NitrosStatisticsConfig{},
+      std::placeholders::_1), nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
       input_qos_)},
   nitros_img_pub_{std::make_shared<
       nvidia::isaac_ros::nitros::ManagedNitrosPublisher<nvidia::isaac_ros::nitros::NitrosImage>>(
       this, "image",
       nvidia::isaac_ros::nitros::nitros_image_32FC1_t::supported_type_name,
-      nvidia::isaac_ros::nitros::NitrosStatisticsConfig{}, output_qos_)}
+      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_)}
 {
   CheckCudaErrors(cudaStreamCreate(&stream_), __FILE__, __LINE__);
 }

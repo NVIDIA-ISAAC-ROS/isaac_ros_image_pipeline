@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "isaac_ros_common/qos.hpp"
 #include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image_view.hpp"
@@ -58,6 +59,10 @@ public:
 
 private:
   void InputCallback(const nvidia::isaac_ros::nitros::NitrosImageView & msg);
+
+  // QoS settings
+  rclcpp::QoS input_qos_;
+  rclcpp::QoS output_qos_;
 
   // Subscription to input NitrosImage messages
   std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<

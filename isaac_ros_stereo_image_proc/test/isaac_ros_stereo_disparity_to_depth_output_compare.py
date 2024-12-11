@@ -106,7 +106,7 @@ class IsaacROSDisparityToDepthComparisonTest(IsaacROSBaseTest):
             # Check ground truth against value received from Isaac ROS DisparityToDepthNode
             self.assertImagesEqual(
                 ground_truth_depth, CvBridge().imgmsg_to_cv2(depth), 0.00001)
-            if(SAVE_DEPTH):
+            if SAVE_DEPTH:
                 np.save(str(test_folder)+'/depth.npy', ground_truth_depth)
 
         finally:

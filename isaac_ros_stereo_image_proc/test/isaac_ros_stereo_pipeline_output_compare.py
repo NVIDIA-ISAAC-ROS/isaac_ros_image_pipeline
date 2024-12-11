@@ -178,9 +178,9 @@ class IsaacROSStereoPipelineComparisonTest(IsaacROSBaseTest):
                     ref_pt = np.array([ref_pt[0], ref_pt[1], ref_pt[2], ref_pt[3]])
 
                     if np.any(np.isnan(isaac_ros_pt)) or np.any(np.isnan(ref_pt)):
-                        if(np.any(np.isnan(isaac_ros_pt))):
+                        if np.any(np.isnan(isaac_ros_pt)):
                             nan_count_isaac_ros += 1
-                        if(np.any(np.isnan(ref_pt))):
+                        if np.any(np.isnan(ref_pt)):
                             nan_count_ref += 1
                         continue
 

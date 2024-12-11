@@ -126,7 +126,12 @@ RectifyNode::RectifyNode(const rclcpp::NodeOptions & options)
     EXTENSIONS,
     PACKAGE_NAME),
   output_width_(declare_parameter<int16_t>("output_width", 1280)),
-  output_height_(declare_parameter<int16_t>("output_height", 800))
+  output_height_(declare_parameter<int16_t>("output_height", 800)),
+  num_blocks_(declare_parameter<int64_t>("num_blocks", 40)),
+  horizontal_interval_(declare_parameter<int16_t>("horizontal_interval", 1)),
+  vertical_interval_(declare_parameter<int16_t>("vertical_interval", 1)),
+  interpolation_(declare_parameter<std::string>("interpolation", "cubic_catmullrom")),
+  border_type_(declare_parameter<std::string>("border_type", "zero"))
 {
   RCLCPP_DEBUG(get_logger(), "[RectifyNode] Constructor");
 
@@ -168,10 +173,40 @@ void RectifyNode::preLoadGraphCallback()
     "nvidia::isaac::tensor_ops::StreamUndistort",
     "regions_height",
     h);
-  RCLCPP_DEBUG(
+
+  std::string hz_interval = "[" + std::to_string(horizontal_interval_) + "]";
+  NitrosNode::preLoadGraphSetParameter(
+    "rectifier",
+    "nvidia::isaac::tensor_ops::StreamUndistort",
+    "horizontal_intervals",
+    hz_interval);
+
+  std::string vt_interval = "[" + std::to_string(vertical_interval_) + "]";
+  NitrosNode::preLoadGraphSetParameter(
+    "rectifier",
+    "nvidia::isaac::tensor_ops::StreamUndistort",
+    "vertical_intervals",
+    vt_interval);
+
+  NitrosNode::preLoadGraphSetParameter(
+    "rectifier",
+    "nvidia::isaac::tensor_ops::StreamUndistort",
+    "interp_type",
+    interpolation_);
+
+  NitrosNode::preLoadGraphSetParameter(
+    "rectifier",
+    "nvidia::isaac::tensor_ops::StreamUndistort",
+    "border_type",
+    border_type_);
+
+  RCLCPP_INFO(
     get_logger(),
-    "[RectifyNode] preLoadGraphCallback() with image (%s x %s).",
-    w.c_str(), h.c_str());
+    "[RectifyNode] preLoadGraphCallback() with image (%s x %s)."
+    "[RectifyNode] preLoadGraphCallback() with interval (%s x %s)."
+    "[RectifyNode] preLoadGraphCallback() with interpolation %s and border type %s.",
+    w.c_str(), h.c_str(), hz_interval.c_str(), vt_interval.c_str(),
+    interpolation_.c_str(), border_type_.c_str());
 }
 
 void RectifyNode::postLoadGraphCallback()
@@ -194,6 +229,11 @@ void RectifyNode::postLoadGraphCallback()
   getNitrosContext().setParameterUInt64(
     "rectifier", "nvidia::gxf::BlockMemoryPool", "block_size",
     block_size);
+
+  uint64_t num_blocks = std::max(static_cast<int>(num_blocks_), 40);
+  getNitrosContext().setParameterUInt64(
+    "rectifier", "nvidia::gxf::BlockMemoryPool", "num_blocks",
+    num_blocks);
 }
 
 RectifyNode::~RectifyNode() {}

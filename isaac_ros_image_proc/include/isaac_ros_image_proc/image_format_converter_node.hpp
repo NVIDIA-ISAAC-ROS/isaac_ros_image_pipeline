@@ -48,6 +48,7 @@ private:
   const std::string encoding_desired_;
   int16_t image_width_;
   int16_t image_height_;
+  int64_t num_blocks_;
 };
 
 }  // namespace image_proc

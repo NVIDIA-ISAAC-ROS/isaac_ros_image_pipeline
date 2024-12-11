@@ -189,7 +189,7 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
             y_coords_left = [c[0][1] for c in left_corners]
             x_coords_right = [c[0][0] for c in right_corners]
             y_coords_right = [c[0][1] for c in right_corners]
-            if(VISUALIZE):
+            if (VISUALIZE):
                 # Draw lines of the same color at the avergae row value for all corners
                 # in the left and right image
                 cv2.drawChessboardCorners(left_image_rect, left_chessboard_dims,
@@ -219,7 +219,7 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
                          for i in range(min(len(left_corners), len(right_corners)))]
             # Allows test pass if same features are within of 4 pixels in both images
             CORNER_ROW_DIFF_THRESHOLD = 4
-            if(VISUALIZE):
+            if (VISUALIZE):
                 print('CORNER_ROW_DIFF_THRESHOLD :')
                 print(CORNER_ROW_DIFF_THRESHOLD)
                 print('row_diffs :')
@@ -241,7 +241,7 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
             # Create a list of difference betwen the slope and average slope
             mean_slope_diffs = slopes-(sum(slopes) / len(slopes))
             EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD = 0.005
-            if(VISUALIZE):
+            if (VISUALIZE):
                 print('EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD :')
                 print(EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD)
                 print('mean_slope_diffs :')

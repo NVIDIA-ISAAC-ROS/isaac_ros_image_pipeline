@@ -95,8 +95,10 @@ const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
 namespace img_encodings = sensor_msgs::image_encodings;
 const std::unordered_map<std::string, std::string> ROS_2_NITROS_FORMAT_MAP({
         {img_encodings::RGB8, nitros::nitros_image_rgb8_t::supported_type_name},
+        {img_encodings::RGBA8, nitros::nitros_image_rgba8_t::supported_type_name},
         {img_encodings::RGB16, nitros::nitros_image_rgb16_t::supported_type_name},
         {img_encodings::BGR8, nitros::nitros_image_bgr8_t::supported_type_name},
+        {img_encodings::BGRA8, nitros::nitros_image_bgra8_t::supported_type_name},
         {img_encodings::BGR16, nitros::nitros_image_bgr16_t::supported_type_name},
         {img_encodings::MONO8, nitros::nitros_image_mono8_t::supported_type_name},
         {img_encodings::MONO16, nitros::nitros_image_mono16_t::supported_type_name},
@@ -115,7 +117,8 @@ ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & o
     PACKAGE_NAME),
   encoding_desired_(declare_parameter<std::string>("encoding_desired", "")),
   image_width_(declare_parameter<int16_t>("image_width", 1280)),
-  image_height_(declare_parameter<int16_t>("image_height", 720))
+  image_height_(declare_parameter<int16_t>("image_height", 720)),
+  num_blocks_(declare_parameter<int64_t>("num_blocks", 40))
 {
   RCLCPP_DEBUG(get_logger(), "[ImageFormatConverterNode] Constructor");
 
@@ -173,6 +176,11 @@ void ImageFormatConverterNode::postLoadGraphCallback()
   getNitrosContext().setParameterUInt64(
     "imageConverter", "nvidia::gxf::BlockMemoryPool", "block_size",
     block_size);
+
+  uint64_t num_blocks = std::max(static_cast<int>(num_blocks_), 40);
+  getNitrosContext().setParameterUInt64(
+    "imageConverter", "nvidia::gxf::BlockMemoryPool", "num_blocks",
+    num_blocks);
 }
 
 ImageFormatConverterNode::~ImageFormatConverterNode() {}

@@ -71,4 +71,10 @@ if(BUILD_TESTING)
   add_launch_test(test/isaac_ros_stereo_point_cloud_output_compare.py)
 endif()
 
+
+# Embed versioning information into installed files
+ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
+include("${ISAAC_ROS_COMMON_CMAKE_PATH}/isaac_ros_common-version-info.cmake")
+generate_version_info(${PROJECT_NAME})
+
 ament_auto_package(INSTALL_TO_SHARE config launch)
