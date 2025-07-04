@@ -126,7 +126,17 @@ set_target_properties(pad_node PROPERTIES
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  # Force use of ROS2 vendor googletest to avoid version conflicts
+  set(CMAKE_IGNORE_PATH "/usr/src/googletest" ${CMAKE_IGNORE_PATH})
+  set(CMAKE_IGNORE_PATH "/usr/include/gtest" ${CMAKE_IGNORE_PATH})
+  set(CMAKE_IGNORE_PATH "/usr/include/gmock" ${CMAKE_IGNORE_PATH})
+
+  # Explicitly use ROS2 vendor googletest/gmock
+  include_directories(BEFORE /opt/ros/humble/src/gtest_vendor/include)
+  include_directories(BEFORE /opt/ros/humble/src/gmock_vendor/include)
 
   # Gtest for alpha blend node
   ament_add_gtest(alpha_blend_test test/alpha_blend_test.cpp)
