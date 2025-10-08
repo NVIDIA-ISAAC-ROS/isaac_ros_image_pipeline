@@ -32,9 +32,9 @@ class IsaacROSPointCloudXyzrgbLaunchFragment(IsaacROSLaunchFragment):
                 name='point_cloud_xyzrgb',
                 namespace='',
                 remappings=[
-                    ('depth_registered/image_rect', '/zed2i/zed_node/depth/depth_registered'),
-                    ('rgb/image_rect_color', 'zed2i/zed_node/rgb/image_rect_color'),
-                    ('rgb/camera_info', '/zed2i/zed_node/rgb/camera_info'),
+                    ('depth_registered/image_rect', 'depth_registered/image_rect'),
+                    ('rgb/image_rect_color', 'rgb/image_rect_color'),
+                    ('rgb/camera_info', 'rgb/camera_info'),
                     ('points', '/points')
                 ],
                 parameters=[{
