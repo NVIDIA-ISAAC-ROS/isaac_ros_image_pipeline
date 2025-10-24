@@ -15,106 +15,85 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include "crop_node.hpp"
+#include <gmock/gmock.h>
+#include "isaac_ros_image_proc/crop_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown
 // Approach: send Invalid Arguments for node parameters to trigger the exception
 
-class CropNodeTestSuite : public ::testing::Test
+TEST(crop_node_test, test_invalid_output_dimension)
 {
-protected:
-  void SetUp() {rclcpp::init(0, nullptr);}
-  void TearDown() {(void)rclcpp::shutdown();}
-};
-
-
-void test_invalid_output_dimension()
-{
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("crop_mode", "CENTER");
+  options.append_parameter_override("input_width", 0);
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "input_width:=0",
-    "-p", "crop_mode:='CENTER'",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::CropNode crop_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Invalid output dimension") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::CropNode crop_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Invalid output dimension"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
-void test_empty_crop_mode()
+TEST(crop_node_test, test_empty_crop_mode)
 {
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("crop_mode", "");
+  options.append_parameter_override("input_width", 1);
+  options.append_parameter_override("input_height", 1);
+  options.append_parameter_override("crop_width", 1);
+  options.append_parameter_override("crop_height", 1);
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "input_width:=1",
-    "-p", "input_height:=1",
-    "-p", "crop_width:=1",
-    "-p", "crop_height:=1",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::CropNode crop_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Crop Mode is not set") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::CropNode crop_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Crop Mode is not set"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
-void test_unsupported_crop_mode()
+TEST(crop_node_test, test_unsupported_crop_mode)
 {
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("crop_mode", "INVALID");
+  options.append_parameter_override("input_width", 1);
+  options.append_parameter_override("input_height", 1);
+  options.append_parameter_override("crop_width", 1);
+  options.append_parameter_override("crop_height", 1);
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "input_width:=1",
-    "-p", "input_height:=1",
-    "-p", "crop_width:=1",
-    "-p", "crop_height:=1",
-    "-p", "crop_mode:='INVALID'",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::CropNode crop_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Unsupported crop mode.") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::CropNode crop_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported crop mode."));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
-}
-
-
-TEST_F(CropNodeTestSuite, test_invalid_output_dimension)
-{
-  EXPECT_EXIT(test_invalid_output_dimension(), testing::ExitedWithCode(1), "");
-}
-
-TEST_F(CropNodeTestSuite, test_empty_crop_mode)
-{
-  EXPECT_EXIT(test_empty_crop_mode(), testing::ExitedWithCode(1), "");
-}
-
-TEST_F(CropNodeTestSuite, test_unsupported_crop_mode)
-{
-  EXPECT_EXIT(test_unsupported_crop_mode(), testing::ExitedWithCode(1), "");
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
 
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ::testing::GTEST_FLAG(death_test_style) = "threadsafe";
   return RUN_ALL_TESTS();
 }

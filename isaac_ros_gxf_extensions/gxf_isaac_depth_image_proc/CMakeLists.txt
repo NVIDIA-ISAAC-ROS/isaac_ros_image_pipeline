@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.5)
 project(gxf_isaac_depth_image_proc LANGUAGES C CXX CUDA)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -Wno-deprecated-gpu-targets)
 endif()
 
 find_package(ament_cmake_auto REQUIRED)

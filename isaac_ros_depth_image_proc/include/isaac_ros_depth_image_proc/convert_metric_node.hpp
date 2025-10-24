@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include "nvcv/Tensor.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include "cuda_runtime.h" // NOLINT
 
 namespace nvidia
 {
@@ -57,9 +58,10 @@ private:
       ::nvidia::isaac_ros::nitros::NitrosImage>>
   nitros_img_pub_;
 
-  cudaStream_t stream_;
-
   cvcuda::ConvertTo convert_op_;
+
+  // CUDA stream to process dynamics detection on
+  cudaStream_t cuda_stream_;
 };
 
 }  // namespace depth_image_proc

@@ -15,101 +15,83 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include "resize_node.hpp"
+#include <gmock/gmock.h>
+#include "isaac_ros_image_proc/resize_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown
 // Approach: send Invalid Arguments for node parameters to trigger the exception
 
-class ResizeNodeTestSuite : public ::testing::Test
+TEST(resize_node_test, test_invalid_output_dimension)
 {
-protected:
-  void SetUp() {rclcpp::init(0, nullptr);}
-  void TearDown() {(void)rclcpp::shutdown();}
-};
-
-
-void test_unsupported_encoding()
-{
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("output_width", -1);
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "output_width:=1080",
-    "-p", "output_height:=720",
-    "-p", "encoding_desired:='unsupported'",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Unsupported encoding") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Invalid output dimension"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
-void test_invalid_output_dimension()
+TEST(resize_node_test, test_unsupported_encoding)
 {
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("output_width", 1080);
+  options.append_parameter_override("output_height", 720);
+  options.append_parameter_override("encoding_desired", "dummy_encoding");
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "output_height:=-1",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Invalid output dimension") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported encoding"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
-void test_invalid_input_dimension()
+TEST(resize_node_test, test_invalid_input_dimension)
 {
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("output_width", 1080);
+  options.append_parameter_override("output_height", 720);
+  options.append_parameter_override("encoding_desired", "");
+  options.append_parameter_override("keep_aspect_ratio", true);
+  options.append_parameter_override("disable_padding", true);
+  options.append_parameter_override("input_width", -1);
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "keep_aspect_ratio:=True",
-    "-p", "disable_padding:=True",
-    "-p", "input_width:=-1",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Invalid input dimension") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Invalid input dimension"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
-}
-
-TEST_F(ResizeNodeTestSuite, test_unsupported_encoding)
-{
-  EXPECT_EXIT(test_unsupported_encoding(), testing::ExitedWithCode(1), "");
-}
-
-TEST_F(ResizeNodeTestSuite, test_invalid_output_dimension)
-{
-  EXPECT_EXIT(test_invalid_output_dimension(), testing::ExitedWithCode(1), "");
-}
-
-TEST_F(ResizeNodeTestSuite, test_invalid_input_dimension)
-{
-  EXPECT_EXIT(test_invalid_input_dimension(), testing::ExitedWithCode(1), "");
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
 
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ::testing::GTEST_FLAG(death_test_style) = "threadsafe";
   return RUN_ALL_TESTS();
 }

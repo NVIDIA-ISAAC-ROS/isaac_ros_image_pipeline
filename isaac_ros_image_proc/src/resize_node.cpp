@@ -39,11 +39,11 @@ namespace image_proc
 
 using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
 
-constexpr char INPUT_CAM_COMPONENT_KEY[] = "sync/camera_info_in";
+constexpr char INPUT_CAM_COMPONENT_KEY[] = "sync/camera_info_message_rx";
 constexpr char INPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
 constexpr char INPUT_CAM_TOPIC_NAME[] = "camera_info";
 
-constexpr char INPUT_COMPONENT_KEY[] = "sync/image_in";
+constexpr char INPUT_COMPONENT_KEY[] = "sync/camera_message_rx";
 constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
 constexpr char INPUT_TOPIC_NAME[] = "image";
 
@@ -63,11 +63,14 @@ const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
   {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
   {"gxf_isaac_message_compositor", "gxf/lib/libgxf_isaac_message_compositor.so"},
   {"gxf_isaac_tensorops", "gxf/lib/libgxf_isaac_tensorops.so"},
+  {"gxf_isaac_camera_utils", "gxf/lib/libgxf_isaac_camera_utils.so"}
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_image_proc",
 };
-const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
+const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {
+  "config/nitros_resize_spec.yaml",
+};
 
 const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
   "config/isaac_ros_image_proc_namespace_injector_rule.yaml",
@@ -148,7 +151,9 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
   encoding_desired_(declare_parameter<std::string>("encoding_desired", "")),
   disable_padding_(static_cast<bool>(declare_parameter<bool>("disable_padding", false))),
   input_width_(declare_parameter<int64_t>("input_width", 0)),
-  input_height_(declare_parameter<int64_t>("input_height", 0))
+  input_height_(declare_parameter<int64_t>("input_height", 0)),
+  use_latest_camera_info_(declare_parameter<bool>("use_latest_camera_info", false)),
+  drop_old_messages_(declare_parameter<bool>("drop_old_messages", false))
 {
   RCLCPP_DEBUG(get_logger(), "[ResizeNode] Constructor");
 
@@ -270,6 +275,13 @@ void ResizeNode::postLoadGraphCallback()
   getNitrosContext().setParameterUInt64(
     "imageResizer", "nvidia::gxf::BlockMemoryPool", "block_size",
     block_size);
+  // Update camera info caching strategy for image resizer
+  getNitrosContext().setParameterBool(
+    "sync", "nvidia::isaac::CameraInfoSynchronization",
+    "use_latest_camera_info", use_latest_camera_info_);
+  getNitrosContext().setParameterBool(
+    "sync", "nvidia::isaac::CameraInfoSynchronization",
+    "drop_old_messages", drop_old_messages_);
 }
 
 void ResizeNode::calculateOutputDims()

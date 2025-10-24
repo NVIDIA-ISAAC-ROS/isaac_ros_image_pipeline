@@ -16,7 +16,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
-#include "alpha_blend_node.hpp"
+#include "isaac_ros_image_proc/alpha_blend_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown

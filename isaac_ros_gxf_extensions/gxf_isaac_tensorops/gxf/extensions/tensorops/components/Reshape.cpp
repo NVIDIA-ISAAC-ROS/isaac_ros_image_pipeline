@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,10 @@ gxf_result_t Reshape::registerInterface(gxf::Registrar* registrar) {
       output_name_, "output_name",
       "output name", "output tensor name",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
-
+  result &= registrar->parameter(
+      stream_pool_, "stream_pool", "cuda stream pool",
+      "cuda stream pool object",
+      gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
   return gxf::ToResultCode(result);
 }
 

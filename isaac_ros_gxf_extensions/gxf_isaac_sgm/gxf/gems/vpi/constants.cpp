@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,11 +30,10 @@ namespace {
 const std::unordered_map<std::string, uint32_t> kStrToVpiBackend({
       {"CPU", VPI_BACKEND_CPU},
       {"CUDA", VPI_BACKEND_CUDA},
-      {"XAVIER", VPI_BACKEND_XAVIER},
-      {"ORIN", VPI_BACKEND_ORIN},
+      {"JETSON", VPI_BACKEND_JETSON},
       {"PVA", VPI_BACKEND_PVA},
       {"ALL", VPI_BACKEND_ALL},
-    });
+});
 
 }  // namespace
 
@@ -62,7 +61,6 @@ gxf::Expected<VPIImageFormat> VideoFormatToImageFormat(gxf::VideoFormat value) {
     case gxf::VideoFormat::GXF_VIDEO_FORMAT_NV12_ER:
       return VPI_IMAGE_FORMAT_Y8_ER;
     default:
-      // TODO(kpatzwaldt): add cases for default return value and then throw error
       return gxf::Unexpected{GXF_INVALID_DATA_FORMAT};
   }
 }
@@ -79,7 +77,6 @@ gxf::Expected<VPIPixelType> VideoFormatToPixelType(gxf::VideoFormat value) {
     case gxf::VideoFormat::GXF_VIDEO_FORMAT_NV12_ER:
       return VPI_PIXEL_TYPE_U8;
     default:
-      // TODO(kpatzwaldt): add cases for default return value and then throw error
       return gxf::Unexpected{GXF_INVALID_DATA_FORMAT};
   }
 }

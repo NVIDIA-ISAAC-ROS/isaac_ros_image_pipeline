@@ -21,7 +21,7 @@ components:
 - name: image_in
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 4
+    capacity: 4  # This is required since there is a fixed distance between image and camera info
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: image_in
@@ -29,7 +29,7 @@ components:
 - name: camera_info_in
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 4
+    capacity: 4  # This is required since there is a fixed distance between image and camera info
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: camera_info_in
@@ -269,6 +269,7 @@ components:
     clock: clock
     stop_on_deadlock: false
     worker_thread_number: 2
+    worker_thread_name_id: "nitros_rectify_node"
 - type: nvidia::gxf::JobStatistics
   parameters:
     clock: clock

@@ -165,7 +165,7 @@ class IsaacROSWideFOVTest(IsaacROSBaseTest):
             test_folder / 'camera_info_right.json')
 
         # Wait at most TIMEOUT seconds for subscriber to respond
-        TIMEOUT = 2
+        TIMEOUT = 20
         end_time = time.time() + TIMEOUT
 
         done = False

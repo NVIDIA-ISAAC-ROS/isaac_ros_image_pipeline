@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,10 +93,6 @@ std::error_code VPITensorStream::VPIRemapImpl::execute(Image<Type> & outImage,
              m_inputImage, m_outputImage, vpiInterpolationType, vpiBorderExt, 0));
     }
 
-    if (status == make_error_code(VPI_SUCCESS)) {
-        // Wait for remap to complete
-        status = make_error_code(vpiStreamSync(stream));
-    }
     return status;
 }
 template std::error_code VPITensorStream::VPIRemapImpl::execute(Image<RGB_U8> & outImage,

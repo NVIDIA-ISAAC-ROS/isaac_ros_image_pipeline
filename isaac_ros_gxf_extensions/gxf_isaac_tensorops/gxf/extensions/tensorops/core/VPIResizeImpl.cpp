@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,10 +67,6 @@ std::error_code VPITensorStream::VPIResizeImpl::execute(Image<T>& outputImage,
     if (status == VPIStatus::VPI_SUCCESS) {
         status = vpiSubmitRescale(stream, backend, m_inputImage, m_outputImage,
             interpType, borderExt, 0);
-    }
-
-    if (status == VPIStatus::VPI_SUCCESS) {
-        status = vpiStreamSync(stream);
     }
 
     if (status != VPIStatus::VPI_SUCCESS) {

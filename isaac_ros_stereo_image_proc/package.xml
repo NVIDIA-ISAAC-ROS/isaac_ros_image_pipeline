@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-FileCopyrightText: Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_stereo_image_proc</name>
-  <version>3.2.5</version>
+  <version>4.0.0</version>
   <description>Stereo and disparity processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -32,6 +32,8 @@ SPDX-License-Identifier: Apache-2.0
   <author>Yuankun Zhu</author>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <build_depend>ament_index_cpp</build_depend>
 
   <depend>rclcpp</depend>
   <depend>image_transport</depend>

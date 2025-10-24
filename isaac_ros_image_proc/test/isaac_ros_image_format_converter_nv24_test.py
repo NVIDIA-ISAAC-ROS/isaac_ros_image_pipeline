@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,10 +80,10 @@ def generate_test_description():
 
 
 class IsaacROSFormatNV24Test(IsaacROSBaseTest):
-    """Vaidate format conversion to the bgr8 format."""
+    """Vaidate format conversion to the nv24 format."""
 
-    def test_rgb_to_bgr_conversion(self) -> None:
-        """Expect the node to convert rgb8 input images into the bgr8 format."""
+    def test_nv24_to_bgr_conversion(self) -> None:
+        """Expect the node to convert nv24 input images into the bgr8 format."""
         self.generate_namespace_lookup(['image_raw', 'image'])
         received_messages = {}
 

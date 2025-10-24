@@ -135,41 +135,41 @@ if(BUILD_TESTING)
   set(CMAKE_IGNORE_PATH "/usr/include/gmock" ${CMAKE_IGNORE_PATH})
 
   # Explicitly use ROS2 vendor googletest/gmock
-  include_directories(BEFORE /opt/ros/humble/src/gtest_vendor/include)
-  include_directories(BEFORE /opt/ros/humble/src/gmock_vendor/include)
+  include_directories(BEFORE /opt/ros/$ENV{ROS_DISTRO}/src/gtest_vendor/include)
+  include_directories(BEFORE /opt/ros/$ENV{ROS_DISTRO}/src/gmock_vendor/include)
 
   # Gtest for alpha blend node
   ament_add_gtest(alpha_blend_test test/alpha_blend_test.cpp)
   target_link_libraries(alpha_blend_test alpha_blend_node)
-  target_include_directories(alpha_blend_node PUBLIC include/isaac_ros_image_proc/)
+  target_include_directories(alpha_blend_node PUBLIC include/)
   ament_target_dependencies(alpha_blend_node rclcpp)
   ament_target_dependencies(alpha_blend_node isaac_ros_nitros)
 
   # Gtest for image format converter node
   ament_add_gtest(image_format_converter_node_test test/image_format_converter_node_test.cpp)
   target_link_libraries(image_format_converter_node_test image_format_converter_node)
-  target_include_directories(image_format_converter_node_test PUBLIC include/isaac_ros_image_proc/)
+  target_include_directories(image_format_converter_node_test PUBLIC include/)
   ament_target_dependencies(image_format_converter_node_test rclcpp)
   ament_target_dependencies(image_format_converter_node_test isaac_ros_nitros)
 
   # Gtest for crop node
   ament_add_gtest(crop_node_test test/crop_node_test.cpp)
   target_link_libraries(crop_node_test crop_node)
-  target_include_directories(crop_node_test PUBLIC include/isaac_ros_image_proc/)
+  target_include_directories(crop_node_test PUBLIC include/)
   ament_target_dependencies(crop_node_test rclcpp)
   ament_target_dependencies(crop_node_test isaac_ros_nitros)
 
   # Gtest for pad node
   ament_add_gtest(pad_node_test test/pad_node_test.cpp)
   target_link_libraries(pad_node_test pad_node)
-  target_include_directories(pad_node_test PUBLIC include/isaac_ros_image_proc/)
+  target_include_directories(pad_node_test PUBLIC include/)
   ament_target_dependencies(pad_node_test rclcpp)
   ament_target_dependencies(pad_node_test isaac_ros_nitros)
 
   # Gtest for resize node
   ament_add_gtest(resize_node_test test/resize_node_test.cpp)
   target_link_libraries(resize_node_test resize_node)
-  target_include_directories(resize_node_test PUBLIC include/isaac_ros_image_proc/)
+  target_include_directories(resize_node_test PUBLIC include/)
   ament_target_dependencies(resize_node_test rclcpp)
   ament_target_dependencies(resize_node_test isaac_ros_nitros)
 
@@ -185,6 +185,7 @@ if(BUILD_TESTING)
   add_launch_test(test/isaac_ros_image_format_converter_4_channel_test.py)
   add_launch_test(test/isaac_ros_image_format_converter_grayscale_test.py)
   add_launch_test(test/isaac_ros_image_format_converter_nv24_test.py)
+  add_launch_test(test/isaac_ros_image_format_converter_nv12_test.py)
   add_launch_test(test/isaac_ros_rectify_test.py)
   add_launch_test(test/isaac_ros_rectify_timestamp_match_test.py)
   add_launch_test(test/isaac_ros_rectify_oss_comparison_test.py)

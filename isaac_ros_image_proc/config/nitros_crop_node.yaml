@@ -54,7 +54,7 @@ components:
 - name: data_transmitter
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
-      capacity: 12
+      capacity: 1
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: data_transmitter
@@ -82,7 +82,7 @@ components:
 - name: image_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 12
+    capacity: 1
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: image_receiver
@@ -90,7 +90,7 @@ components:
 - name: bbox_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 12
+    capacity: 1
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: bbox_receiver
@@ -98,7 +98,7 @@ components:
 - name: data_transmitter
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
-    capacity: 12
+    capacity: 1
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
     transmitter: data_transmitter
@@ -231,6 +231,7 @@ components:
     stop_on_deadlock: false
     check_recession_period_ms: 1
     worker_thread_number: 2
+    worker_thread_name_id: "nitros_crop_node"
 - type: nvidia::gxf::JobStatistics
   parameters:
     clock: clock

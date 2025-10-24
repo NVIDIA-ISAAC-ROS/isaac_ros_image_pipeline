@@ -132,6 +132,7 @@ DisparityNode::DisparityNode(const rclcpp::NodeOptions & options)
   vpi_backend_(declare_parameter<std::string>("backend", "CUDA")),
   max_disparity_(declare_parameter<float>("max_disparity", 256)),
   confidence_threshold_(declare_parameter<int>("confidence_threshold", 60000)),
+  confidence_type_(declare_parameter<int>("confidence_type", 0)),
   window_size_(declare_parameter<int>("window_size", 7)),
   num_passes_(declare_parameter<int>("num_passes", 2)),
   p1_(declare_parameter<int>("p1", 8)),
@@ -187,6 +188,9 @@ void DisparityNode::postLoadGraphCallback()
   getNitrosContext().setParameterInt32(
     "disparity", "nvidia::isaac::SGMDisparity", "confidence_threshold",
     confidence_threshold_);
+  getNitrosContext().setParameterInt32(
+    "disparity", "nvidia::isaac::SGMDisparity", "confidence_type",
+    confidence_type_);
   getNitrosContext().setParameterInt32(
     "disparity", "nvidia::isaac::SGMDisparity", "window_size",
     window_size_);

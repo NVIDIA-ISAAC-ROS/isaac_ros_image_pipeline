@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ gxf_result_t ConvertColorFormatStreamImpl(
     const ImageInfo& input_info, const char* output_name, const char* input_name,
     gxf::Handle<TensorStream> stream, gxf::Handle<ImageAdapter> output_adapter,
     gxf::Handle<ImageAdapter> input_adapter,
-    gxf::Handle<gxf::Allocator> allocator) {
+    gxf::Handle<gxf::Allocator> allocator, bool sync = true) {
   auto input_image = input_adapter->WrapImageFromMessage<T_IN>(input, input_name);
   if (!input_image) {
     return GXF_FAILURE;
@@ -82,6 +82,14 @@ gxf_result_t ConvertColorFormatStreamImpl(
       cvcore::tensor_ops::ErrorCode::SUCCESS)) {
     GXF_LOG_ERROR("color conversion operation failed.");
     return GXF_FAILURE;
+  }
+
+  // VPI sync if needed
+  if (sync) {
+    if (stream->getStream()->SyncStream()) {
+        GXF_LOG_ERROR("sync stream failed.");
+        return GXF_FAILURE;
+    }
   }
 
   return GXF_SUCCESS;
@@ -107,6 +115,9 @@ gxf_result_t ConvertColorFormatBase<USE_TENSOR_STREAM>::registerInterface(
       "tensor stream", "tensor stream object",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
   result &= registrar->parameter(
+      vpi_sync_, "vpi_sync", "In place VPI sync",
+      "Sync VPI stream in the extension", true);
+  result &= registrar->parameter(
       stream_pool_, "stream_pool",
       "cuda stream pool", "cuda stream pool object",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
@@ -122,7 +133,6 @@ gxf_result_t ConvertColorFormatBase<USE_TENSOR_STREAM>::registerInterface(
       output_name_, "output_name",
       "output name", "output tensor name",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
-
   return gxf::ToResultCode(result);
 }
 
@@ -160,7 +170,8 @@ gxf_result_t ConvertColorFormatBase<USE_TENSOR_STREAM>::doUpdateCameraMessage(
     return detail::ConvertColorFormatStreamImpl<INPUT_TYPE, OUTPUT_TYPE>(     \
       output, input, output_info_, input_info_, output_name, input_name,      \
       stream_.try_get().value(),                                              \
-      output_adapter_.get(), input_adapter_.get(), pool_.get());              \
+      output_adapter_.get(), input_adapter_.get(), pool_.get(),               \
+      vpi_sync_.try_get().value());                                            \
   }
 
 template <>

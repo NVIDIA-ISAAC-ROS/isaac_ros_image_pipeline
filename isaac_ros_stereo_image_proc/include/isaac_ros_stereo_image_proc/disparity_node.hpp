@@ -55,6 +55,7 @@ private:
   const std::string vpi_backend_;
   const float max_disparity_;
   const int confidence_threshold_;
+  const int confidence_type_;
   const int window_size_;
   const int num_passes_;
   const int p1_;
