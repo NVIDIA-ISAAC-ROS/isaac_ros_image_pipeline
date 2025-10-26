@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_depth_image_proc</name>
-  <version>3.2.5</version>
+  <version>4.0.0</version>
   <description>Stereo and disparity processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -32,6 +32,7 @@ SPDX-License-Identifier: Apache-2.0
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
   <build_depend>isaac_ros_common</build_depend>
 
+  <depend>eigen</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>isaac_ros_nitros</depend>
@@ -41,6 +42,10 @@ SPDX-License-Identifier: Apache-2.0
   <depend>isaac_ros_stereo_image_proc</depend>
   <depend>gxf_isaac_depth_image_proc</depend>
   <depend>isaac_ros_managed_nitros</depend>
+  <depend>message_filters</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_ros</depend>
 
   <exec_depend>gxf_isaac_sgm</exec_depend>
 

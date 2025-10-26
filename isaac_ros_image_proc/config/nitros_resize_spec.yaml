@@ -1,0 +1,702 @@
+%YAML 1.2
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+---
+id: [0x6eae64ff97a94d9b, 0xb324f85e6a98a75a]
+name: NvCvTensorOpsExtension
+version: 3.0.2
+format_remapping:
+  nitros_image_rgb8: RGB_U8
+  nitros_image_bgr8: BGR_U8
+  nitros_image_rgba8: RGBA_U8
+  nitros_image_bgra8: BGRA_U8
+  nitros_image_mono8: Y_U8
+  nitros_image_mono16: Y_U16
+  nitros_image_rgb16: RGB_U16
+  nitros_image_bgr16: BGR_U16
+  nitros_image_nv12: NV12
+  nitros_image_nv24: NV24
+components:
+  - id: [0xd94385e5b35b4634, 0x9adb0d214a3865f6]
+    type: nvidia::isaac::tensor_ops::TensorStream
+  - id: [0xd0c4ddad486a4a91, 0xb69c8a5304b205ef]
+    type: nvidia::isaac::tensor_ops::ImageAdapter
+  - id: [0xd073a92344ba4b81, 0xbd0f18f4996048e9]
+    type: nvidia::isaac::tensor_ops::CameraModel
+  - id: [0x6c9419223e4b4c2b, 0x899a4d65279c6507]
+    type: nvidia::isaac::tensor_ops::Frame3D
+  - id: [0xa58141ac7eca4ea5, 0x9b545446fe379a11]
+    type: nvidia::isaac::tensor_ops::Resize
+    input_output_groups:
+      - input_keys: [receiver]
+        output_keys: [transmitter]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+  - id: [0xeb8b5f5b36d44b48, 0x81f959fd28e6f677]
+    type: nvidia::isaac::tensor_ops::StreamResize
+    input_output_groups:
+      - input_keys: [receiver]
+        output_keys: [transmitter]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_nv12]
+                output_formats: [nitros_image_nv12]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8]
+                output_formats: [nitros_image_bgra8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+  - id: [0xadebc792bd0b4a56, 0x99c1405fd2ea0727]
+    type: nvidia::isaac::tensor_ops::StreamUndistort
+    input_output_groups:
+      - input_keys: [receiver]
+        output_keys: [transmitter]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+  - id: [0xfc4d7b4d8fcc4daa, 0xa286056e0fcafa78]
+    type: nvidia::isaac::tensor_ops::ConvertColorFormat
+    input_output_groups:
+      - input_keys: [receiver]
+        output_keys: [transmitter]
+        input_format_keys: []
+        output_format_keys: [output_type]
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono16]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono16]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_mono16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_mono16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono16]
+                output_formats: [nitros_image_mono16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+  - id: [0x5ab4a4d8f7a34552, 0xa90be52660b076fd]
+    type: nvidia::isaac::tensor_ops::StreamConvertColorFormat
+    input_output_groups:
+      - input_keys: [receiver]
+        output_keys: [transmitter]
+        input_format_keys: []
+        output_format_keys: [output_type]
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgba8]
+                output_formats: [nitros_image_rgba8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8]
+                output_formats: [nitros_image_bgra8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono16]
+                output_formats: [nitros_image_mono16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb16]
+                output_formats: [nitros_image_rgb16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr16]
+                output_formats: [nitros_image_bgr16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12]
+                output_formats: [nitros_image_nv12]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv24]
+                output_formats: [nitros_image_nv24]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_nv12]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_nv12]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv24]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_nv24]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv24]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_nv24]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_nv12]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv24]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_nv24]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgba8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgba8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgra8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgba8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_rgba8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_bgra8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+  - id: [0x269d4237f3c3479e, 0xbcca9ecc44c71a71]
+    type: nvidia::isaac_ros::MessageCompositor
+    input_output_groups:
+      - input_keys: [image_rx, camera_model_rx]
+        output_keys: [tx]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_bgr8, nitros_camera_info]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8, nitros_camera_info]
+                output_formats: [nitros_image_bgra8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8, nitros_camera_info]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8, nitros_camera_info]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12, nitros_camera_info]
+                output_formats: [nitros_image_nv12]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+  - id: [0xfc4d7b4d8fcc4daa, 0xa286056e0fcafa78]
+    type: nvidia::isaac_ros::MessageSplitter
+    input_output_groups:
+      - input_keys: [rx]
+        output_keys: [image_tx, camera_model_tx]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8]
+                output_formats: [nitros_image_bgra8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_mono8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12]
+                output_formats: [nitros_image_nv12, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+---
+id: [0xd8d7816ec0485abc, 0xff795a414bd496ca]
+name: ImageFlip
+version: 1.0.0
+components:
+  - id: [0x5738fb840285469e, 0x9073e6aa491d8a14]
+    type: nvidia::isaac_ros::ImageFlip
+    input_output_groups:
+      - input_keys: [image_receiver]
+        output_keys: [output_transmitter]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8]
+                output_formats: [nitros_image_mono8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono16]
+                output_formats: [nitros_image_mono16]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv24]
+                output_formats: [nitros_image_nv24]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+---
+id: [0xe60e138f73c24126, 0x906a2170401bc6cf]
+name: BBoxGeneratorExts
+version: 1.0.0
+components:
+  - id: [0xe60e138f73c24125, 0x906a2170401bc6ce]
+    type: nvidia::isaac::tensor_ops::BBoxGenerator
+  - id: [0x4a7ff422de3841bc, 0x9e743ac10d9294b6]
+    type: nvidia::isaac::tensor_ops::CropAndResize
+    input_output_groups:
+      - input_keys: [receiver]
+        output_keys: [transmitter]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_rgb8]
+                output_formats: [nitros_image_rgb8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgr8]
+                output_formats: [nitros_image_bgr8]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+---
+id: [0xa722f33021690730, 0x8efa17986d37641d]
+name: NvIsaacCameraUtilsExtension
+version: 2.0.0
+components:
+  - id: [0x8760c3e2306c2ff6, 0xb9f0fb97cef0210f]
+    type: nvidia::isaac::CameraInfoSynchronization
+    input_output_groups:
+      - input_keys: [camera_message_rx, camera_info_message_rx]
+        output_keys: [camera_message_tx, camera_info_message_tx]
+        input_format_keys: []
+        output_format_keys: []
+        supported_formats:
+          - platforms: [any]
+            details:
+              - input_formats: [nitros_image_bgr8, nitros_camera_info]
+                output_formats: [nitros_image_bgr8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_bgra8, nitros_camera_info]
+                output_formats: [nitros_image_bgra8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_rgb8, nitros_camera_info]
+                output_formats: [nitros_image_rgb8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_mono8, nitros_camera_info]
+                output_formats: [nitros_image_mono8, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%
+              - input_formats: [nitros_image_nv12, nitros_camera_info]
+                output_formats: [nitros_image_nv12, nitros_camera_info]
+                costs:
+                  throughput: 10bytes/s
+                  latency: 10ms
+                  power: 100J
+                  accuracy: 100%

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 #include "extensions/sgm/disparity_compositor.hpp"
 
+#include <algorithm>
 #include <climits>
 #include <string>
 #include <utility>
@@ -178,12 +179,9 @@ gxf_result_t DisparityCompositor::tick() noexcept {
   const auto disp_video_buff = maybe_input_disparity_message->get<gxf::VideoBuffer>(kNameFrame);
   const gxf::VideoBufferInfo video_info = disp_video_buff.value()->video_frame_info();
   if (video_info.width != output_intrinsics->dimensions.x ||
-    video_info.height != output_intrinsics->dimensions.y)
-  {
-
+    video_info.height != output_intrinsics->dimensions.y) {
     const float scaler_x = static_cast<float>(video_info.width) / output_intrinsics->dimensions.x;
     const float scaler_y = static_cast<float>(video_info.height) / output_intrinsics->dimensions.y;
-    const float min_scaler = std::min(scaler_x, scaler_y);
     output_intrinsics->dimensions.x = video_info.width;
     output_intrinsics->dimensions.y = video_info.height;
     output_intrinsics->focal_length.x *= scaler_x;

@@ -58,6 +58,9 @@ private:
   bool disable_padding_;
   int64_t input_width_;
   int64_t input_height_;
+  // If turned on, this disables the ability to update calibration params dynamically
+  bool use_latest_camera_info_;
+  bool drop_old_messages_;
 };
 
 }  // namespace image_proc

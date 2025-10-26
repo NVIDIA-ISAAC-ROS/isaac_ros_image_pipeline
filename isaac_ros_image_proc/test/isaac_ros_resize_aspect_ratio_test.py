@@ -41,7 +41,7 @@ def generate_test_description():
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             package='isaac_ros_image_proc',
-            plugin='isaac_ros::image_proc::ResizeNode',
+            plugin='nvidia::isaac_ros::image_proc::ResizeNode',
             name='resize_node',
             namespace=IsaacROSResizeAspectRatioTest.generate_namespace(),
             parameters=[{

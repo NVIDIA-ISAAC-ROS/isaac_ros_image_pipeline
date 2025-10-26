@@ -18,42 +18,46 @@
 ---
 name: sync
 components:
-- name: image_in
+- name: camera_message_rx
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 2
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
-    receiver: image_in
-    min_size: 1
-- name: camera_info_in
+    receiver: camera_message_rx
+    min_sum: 1
+- name: camera_info_message_rx
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 2
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
-    receiver: camera_info_in
-    min_size: 1
-- name: image_out
+    receiver: camera_info_message_rx
+    min_sum: 1
+- name: camera_message_tx
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
     capacity: 1
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
-    transmitter: image_out
+    transmitter: camera_message_tx
     min_size: 1
-- name: camera_info_out
+- name: camera_info_message_tx
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
     capacity: 1
 - type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
   parameters:
-    transmitter: camera_info_out
+    transmitter: camera_info_message_tx
     min_size: 1
-- type: nvidia::gxf::Synchronization
+- type: nvidia::isaac::CameraInfoSynchronization
   parameters:
-    inputs: [image_in, camera_info_in]
-    outputs: [image_out, camera_info_out]
+    camera_message_rx: camera_message_rx
+    camera_info_message_rx: camera_info_message_rx
+    camera_message_tx: camera_message_tx
+    camera_info_message_tx: camera_info_message_tx
+    use_latest_camera_info: false
+    drop_old_messages: false
 ---
 name: input_compositor
 components:
@@ -119,6 +123,7 @@ components:
     stream_priority: 0
     reserved_size: 1
     max_size: 1
+    nvtx_identifier: "nitros_resize_node_cuda_stream"
 - name: StreamResize
   type: nvidia::isaac::tensor_ops::Resize
   parameters:
@@ -236,11 +241,11 @@ components:
 components:
 - type: nvidia::gxf::Connection
   parameters:
-    source: sync/image_out
+    source: sync/camera_message_tx
     target: input_compositor/image_in
 - type: nvidia::gxf::Connection
   parameters:
-    source: sync/camera_info_out
+    source: sync/camera_info_message_tx
     target: input_compositor/cam_info_in
 - type: nvidia::gxf::Connection
   parameters:
@@ -272,6 +277,7 @@ components:
     clock: clock
     stop_on_deadlock: false
     worker_thread_number: 2
+    worker_thread_name_id: "nitros_resize_node"
 - type: nvidia::gxf::JobStatistics
   parameters:
     clock: clock

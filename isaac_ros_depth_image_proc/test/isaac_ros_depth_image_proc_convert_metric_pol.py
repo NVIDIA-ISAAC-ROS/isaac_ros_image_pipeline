@@ -59,7 +59,7 @@ class IsaacROSDepthImageProcConvertMetricTest(IsaacROSBaseTest):
 
     @IsaacROSBaseTest.for_each_test_case()
     def test_convert_metric(self, test_folder):
-        TIMEOUT = 10
+        TIMEOUT = 20
         received_messages = {}
 
         self.generate_namespace_lookup(['image', 'image_raw'])

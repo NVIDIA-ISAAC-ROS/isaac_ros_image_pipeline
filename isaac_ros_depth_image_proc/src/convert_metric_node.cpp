@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 
 #include "isaac_ros_nitros_image_type/nitros_image_builder.hpp"
 #include "sensor_msgs/image_encodings.hpp"
+
+#include "isaac_ros_common/cuda_stream.hpp"
 
 namespace nvidia
 {
@@ -64,7 +66,10 @@ ConvertMetricNode::ConvertMetricNode(const rclcpp::NodeOptions options)
       nvidia::isaac_ros::nitros::nitros_image_32FC1_t::supported_type_name,
       nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_)}
 {
-  CheckCudaErrors(cudaStreamCreate(&stream_), __FILE__, __LINE__);
+  CHECK_CUDA_ERROR(
+    ::nvidia::isaac_ros::common::initNamedCudaStream(
+      cuda_stream_, "isaac_ros_convert_metric_node"),
+    "Error initializing CUDA stream");
 }
 
 void ConvertMetricNode::DepthCallback(
@@ -105,8 +110,9 @@ void ConvertMetricNode::DepthCallback(
   // Allocate the memory buffer ourselves rather than letting CV-CUDA allocate it
   float * raw_output_buffer{nullptr};
   const size_t output_buffer_size{img_width * img_height * img_channels * sizeof(float)};
-  CheckCudaErrors(
-    cudaMalloc(&raw_output_buffer, output_buffer_size), __FILE__, __LINE__);
+  CHECK_CUDA_ERROR(
+    cudaMallocAsync(&raw_output_buffer, output_buffer_size, cuda_stream_),
+    "Error allocating memory for output buffer in ConvertMetricNode::DepthCallback");
 
   nvcv::TensorDataStridedCuda::Buffer output_buffer;
   output_buffer.strides[3] = sizeof(float);
@@ -128,9 +134,13 @@ void ConvertMetricNode::DepthCallback(
 
   // Convert from uint16_t -> float32.
   // And divide by 1000 to convert from millimeters -> meters
-  convert_op_(stream_, input_tensor, output_tensor, kMillimetresToMetres, kConvertOpBeta);
+  convert_op_(
+    cuda_stream_, input_tensor, output_tensor,
+    kMillimetresToMetres, kConvertOpBeta);
 
-  CheckCudaErrors(cudaStreamSynchronize(stream_), __FILE__, __LINE__);
+  CHECK_CUDA_ERROR(
+    cudaStreamSynchronize(cuda_stream_),
+    "Error synchronizing CUDA stream in ConvertMetricNode::DepthCallback");
 
   std_msgs::msg::Header header;
   header.frame_id = img_msg.GetFrameId();
@@ -150,7 +160,9 @@ void ConvertMetricNode::DepthCallback(
 
 ConvertMetricNode::~ConvertMetricNode()
 {
-  CheckCudaErrors(cudaStreamDestroy(stream_), __FILE__, __LINE__);
+  CHECK_CUDA_ERROR(
+    cudaStreamDestroy(cuda_stream_),
+    "Error destroying CUDA stream in ConvertMetricNode::~ConvertMetricNode");
 }
 
 }  // namespace depth_image_proc

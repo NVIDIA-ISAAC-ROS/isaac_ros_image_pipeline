@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 #include "gxf/cuda/cuda_stream_pool.hpp"
 #include "gxf/std/allocator.hpp"
 #include "gxf/std/codelet.hpp"
+#include "gxf/std/eos.hpp"
 #include "gxf/std/receiver.hpp"
 #include "gxf/std/tensor.hpp"
 #include "gxf/std/transmitter.hpp"
@@ -72,6 +73,7 @@ class TensorOperator : public gxf::Codelet {
   gxf::Parameter<gxf::Handle<ImageAdapter>> output_adapter_;
   gxf::Parameter<std::string> input_name_;
   gxf::Parameter<std::string> output_name_;
+  gxf::Parameter<bool> vpi_sync_;
 
   // Input image info
   ImageInfo input_info_;

@@ -15,50 +15,36 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include "image_format_converter_node.hpp"
+#include <gmock/gmock.h>
+#include "isaac_ros_image_proc/image_format_converter_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown
 // Approach: send Invalid Arguments for node parameters to trigger the exception
 
-class ImageFormatConverterNodeTestSuite : public ::testing::Test
+TEST(image_format_converter_node_test, test_unsupported_encoding_desired)
 {
-protected:
-  void SetUp() {rclcpp::init(0, nullptr);}
-  void TearDown() {(void)rclcpp::shutdown();}
-};
-
-
-void test_unsupported_encoding_desired()
-{
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("encoding_desired", "ENCODING_DESIRED");
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "encoding_desired:='ENCODING_DESIRED'",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::ImageFormatConverterNode image_format_converter_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Unsupported encoding") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::ImageFormatConverterNode image_format_converter_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported encoding"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
-}
-
-
-TEST_F(ImageFormatConverterNodeTestSuite, test_unsupported_encoding_desired)
-{
-  EXPECT_EXIT(test_unsupported_encoding_desired(), testing::ExitedWithCode(1), "");
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
 
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ::testing::GTEST_FLAG(death_test_style) = "threadsafe";
   return RUN_ALL_TESTS();
 }

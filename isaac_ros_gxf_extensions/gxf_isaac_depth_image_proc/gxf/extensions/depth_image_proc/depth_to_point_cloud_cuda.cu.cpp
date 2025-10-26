@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 // limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "extensions/depth_image_proc/depth_to_point_cloud_cuda.cu.hpp"
+#include "depth_to_point_cloud_cuda.cu.hpp"
 
 #include <unordered_map>
 
-#include "cuda.h"  // NOLINT - include .h without directory
 #include "cuda_runtime.h"  // NOLINT - include .h without directory
 
 namespace
@@ -28,9 +27,8 @@ inline void checkCudaErrors(cudaError_t result, const char * filename, int line_
 {
   if (result != cudaSuccess) {
     GXF_LOG_ERROR(
-      ("CUDA Error: " + std::string(cudaGetErrorString(result)) +
-      " (error code: " + std::to_string(result) + ") at " +
-      std::string(filename) + " in line " + std::to_string(line_number)).c_str());
+      "CUDA Error: %s (error code: %s) at %s in line %d",
+      cudaGetErrorString(result), std::to_string(result).c_str(), filename, line_number);
   }
 }
 
@@ -52,7 +50,7 @@ __device__ inline void ExtractR_G_B_Pixel_CUDA(
 }
 
 __device__ inline void WriteColorPointToBuffer_CUDA(
-  float * point_cloud_buffer,
+  float* point_cloud_buffer,
   uint32_t pixel, unsigned int point_cloud_index,
   const nvidia::isaac_ros::depth_image_proc::PointCloudProperties & point_cloud_properties)
 {
@@ -127,9 +125,9 @@ __global__ void ColorizePointCloud_CUDA(
 {
   unsigned int point_cloud_index = blockIdx.x * blockDim.x + threadIdx.x;
   if (point_cloud_index < point_cloud_properties.n_points) {
-    int depth_index = point_cloud_index*skip;
+    int depth_index = point_cloud_index * skip;
     if(depth_index < depth_properties.height * depth_properties.width){
-      unsigned int rgb_index = depth_index*point_cloud_properties.rgb_offset;
+      unsigned int rgb_index = depth_index * point_cloud_properties.rgb_offset;
       uint8_t r_pixel, g_pixel, b_pixel;
       ExtractR_G_B_Pixel_CUDA(r_pixel, g_pixel, b_pixel, rgb_buffer, rgb_index, depth_properties);
       uint32_t pixel = GetRGBPixel_CUDA(r_pixel, g_pixel, b_pixel);

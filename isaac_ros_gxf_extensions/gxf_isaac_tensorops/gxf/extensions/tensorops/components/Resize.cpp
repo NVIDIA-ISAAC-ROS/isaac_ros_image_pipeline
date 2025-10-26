@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ gxf_result_t ResizeStreamImpl(gxf::Entity& output,
     gxf::Handle<TensorStream> stream, gxf::Handle<ImageAdapter> output_adapter,
     gxf::Handle<ImageAdapter> input_adapter, gxf::Handle<gxf::Allocator> allocator,
     cvcore::tensor_ops::InterpolationType interp_type,
-    cvcore::tensor_ops::BorderType border_type) {
+    cvcore::tensor_ops::BorderType border_type, bool sync = true) {
   auto input_image = input_adapter->WrapImageFromMessage<T>(input, input_name);
   if (!input_image) {
     return GXF_FAILURE;
@@ -81,6 +81,14 @@ gxf_result_t ResizeStreamImpl(gxf::Entity& output,
       cvcore::tensor_ops::ErrorCode::SUCCESS)) {
     GXF_LOG_ERROR("resize operation failed.");
     return GXF_FAILURE;
+  }
+
+  // VPI sync if needed
+  if (sync) {
+    if (stream->getStream()->SyncStream()) {
+        GXF_LOG_ERROR("sync stream failed %p.", stream->getStream());
+        return GXF_FAILURE;
+    }
   }
 
   return GXF_SUCCESS;
@@ -112,6 +120,9 @@ gxf_result_t ResizeBase<USE_TENSOR_STREAM>::registerInterface(gxf::Registrar* re
       stream_, "stream", "tensor stream", "tensor stream object",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
   result &= registrar->parameter(
+      vpi_sync_, "vpi_sync", "In place VPI sync",
+      "Sync VPI stream in the extension", true);
+  result &= registrar->parameter(
       stream_pool_, "stream_pool", "cuda stream pool",
       "cuda stream pool object",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
@@ -139,16 +150,22 @@ gxf::Expected<ImageInfo> ResizeBase<USE_TENSOR_STREAM>::doInferOutputInfo(gxf::E
 }
 
 template<bool USE_TENSOR_STREAM>
-gxf_result_t ResizeBase<USE_TENSOR_STREAM>::doForwardTargetCamera(gxf::Expected<nvidia::gxf::Entity> input_message,
-                                                gxf::Expected<nvidia::gxf::Entity> output_message) {
-  return RerouteMessage<gxf::CameraModel>(
-    output_message.value(), input_message.value(),
-    [&](gxf::Handle<gxf::CameraModel> output, gxf::Handle<gxf::CameraModel> input) {
-      *output = GetScaledCameraModel(*input, output_info_.width,
-        output_info_.height, keep_aspect_ratio_.get()).value();
-      return GXF_SUCCESS;
-    },
-    "target_camera");
+gxf_result_t ResizeBase<USE_TENSOR_STREAM>::doForwardTargetCamera(
+    gxf::Expected<nvidia::gxf::Entity> input_message,
+    gxf::Expected<nvidia::gxf::Entity> output_message) {
+  auto maybe_component = input_message.value().get<gxf::CameraModel>("target_camera");
+  if (maybe_component) {
+    auto output_component = output_message.value().add<gxf::CameraModel>("target_camera");
+    if (!output_component) {
+      GXF_LOG_ERROR("add output component failed.");
+      return output_component.error();
+    }
+    gxf::Handle<gxf::CameraModel> input = maybe_component.value();
+    gxf::Handle<gxf::CameraModel> output = output_component.value();
+    *output = GetScaledCameraModel(*input, output_info_.width, output_info_.height,
+                                   keep_aspect_ratio_.get()).value();
+  }
+  return GXF_SUCCESS;
 }
 
 template<bool USE_TENSOR_STREAM>
@@ -173,7 +190,8 @@ gxf_result_t ResizeBase<USE_TENSOR_STREAM>::doUpdateCameraMessage(
     return detail::ResizeStreamImpl<INPUT_TYPE>(output, input, output_info_, \
         input_info_, output_name, input_name,                                \
         stream_.try_get().value(), output_adapter_.get(),                    \
-        input_adapter_.get(), pool_.get(), interp.value(), border.value());  \
+        input_adapter_.get(), pool_.get(), interp.value(), border.value(),   \
+        vpi_sync_.try_get().value());                                         \
   }
 
 template<>

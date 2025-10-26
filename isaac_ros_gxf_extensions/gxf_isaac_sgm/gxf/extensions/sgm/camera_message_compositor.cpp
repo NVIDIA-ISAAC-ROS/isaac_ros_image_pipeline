@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,21 +20,17 @@
 
 #include "extensions/messages/camera_message.hpp"
 
-namespace nvidia
-{
-namespace isaac
-{
+namespace nvidia {
+namespace isaac {
+namespace {
 
-namespace
-{
 constexpr const char kNameFrame[] = "frame";
 constexpr const char kNameIntrinsics[] = "intrinsics";
 constexpr const char kNameExtrinsics[] = "extrinsics";
 constexpr const char kNameSequenceNumber[] = "sequence_number";
 }  // namespace
 
-gxf_result_t CameraMessageCompositor::registerInterface(gxf::Registrar * registrar)
-{
+gxf_result_t CameraMessageCompositor::registerInterface(gxf::Registrar * registrar) {
   gxf::Expected<void> result;
   result &= registrar->parameter(
     video_buffer_input_, "video_buffer_input", "Video Buffer Input",
@@ -49,8 +45,7 @@ gxf_result_t CameraMessageCompositor::registerInterface(gxf::Registrar * registr
   return gxf::ToResultCode(result);
 }
 
-gxf_result_t CameraMessageCompositor::tick()
-{
+gxf_result_t CameraMessageCompositor::tick() {
   // Receive inputs
   auto maybe_input_video_buffer_entity = video_buffer_input_->receive();
   if (!maybe_input_video_buffer_entity) {

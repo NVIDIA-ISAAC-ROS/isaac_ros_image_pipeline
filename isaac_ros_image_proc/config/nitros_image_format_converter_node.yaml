@@ -21,7 +21,7 @@ components:
 - name: data_receiver
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
-    capacity: 2
+    capacity: 1
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: data_receiver
@@ -98,6 +98,7 @@ components:
     clock: clock
     stop_on_deadlock: false
     worker_thread_number: 2
+    worker_thread_name_id: "nitros_image_format_converter_node"
 - type: nvidia::gxf::JobStatistics
   parameters:
     clock: clock

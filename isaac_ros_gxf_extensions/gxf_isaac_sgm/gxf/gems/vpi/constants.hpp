@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,7 @@ namespace nvidia {
 namespace isaac {
 namespace vpi {
 
-constexpr uint32_t VPI_BACKEND_XAVIER = VPI_BACKEND_PVA | VPI_BACKEND_NVENC | VPI_BACKEND_VIC;
-constexpr uint32_t VPI_BACKEND_ORIN = VPI_BACKEND_OFA | VPI_BACKEND_PVA | VPI_BACKEND_VIC;
+constexpr uint32_t VPI_BACKEND_JETSON = VPI_BACKEND_OFA | VPI_BACKEND_PVA | VPI_BACKEND_VIC;
 
 gxf::Expected<VPIBackend> StringToBackend(const std::string& str);
 

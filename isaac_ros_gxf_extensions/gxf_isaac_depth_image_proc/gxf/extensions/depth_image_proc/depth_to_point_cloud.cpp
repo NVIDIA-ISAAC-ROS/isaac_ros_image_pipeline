@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,26 +14,28 @@
 // limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "extensions/depth_image_proc/depth_to_point_cloud.hpp"
+#include "depth_to_point_cloud.hpp"
+
+#include <limits>
+
 #include "gems/gxf_helpers/expected_macro_gxf.hpp"
 
-namespace nvidia
-{
-namespace isaac_ros
-{
-namespace depth_image_proc
-{
-gxf_result_t DepthToPointCloud::registerInterface(gxf::Registrar * registrar)
-{
+namespace nvidia {
+namespace isaac_ros {
+namespace depth_image_proc {
+
+gxf_result_t DepthToPointCloud::registerInterface(gxf::Registrar* registrar) {
   gxf::Expected<void> result;
   result &= registrar->parameter(
       allocator_, "allocator", "Memory allocator",
       "Handle to the memory allocator pool used for data generation.");
   result &= registrar->parameter(
-      depth_receiver_, "depth_receiver", "Depth map input", "Name of incoming 'depth_receiver' channel.");
+      depth_receiver_, "depth_receiver", "Depth map input",
+      "Name of incoming 'depth_receiver' channel.");
   result &= registrar->parameter(
       image_receiver_, "image_receiver", "Image input aligned with depth input",
-      "Name of incoming 'image_receiver' channel. Must be aligned at a pixel level with depth image.",
+      "Name of incoming 'image_receiver' channel."
+      "Must be aligned at a pixel level with depth image.",
       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
   result &= registrar->parameter(
     point_cloud_transmitter_, "point_cloud_transmitter",
@@ -48,8 +50,7 @@ gxf_result_t DepthToPointCloud::registerInterface(gxf::Registrar * registrar)
   return gxf::ToResultCode(result);
 }
 
-gxf_result_t DepthToPointCloud::start()
-{
+gxf_result_t DepthToPointCloud::start() {
   colorize_point_cloud_ = static_cast<bool>(image_receiver_.try_get());
   if (skip_ < 1) {
     GXF_LOG_ERROR("skip must be strictly positive, %d was provided", skip_.get());
@@ -58,11 +59,11 @@ gxf_result_t DepthToPointCloud::start()
   return GXF_SUCCESS;
 }
 
-gxf_result_t DepthToPointCloud::tick()
-{
+gxf_result_t DepthToPointCloud::tick() {
   // Read input message(s) and validate them
   gxf::Entity depth_entity = UNWRAP_OR_RETURN(depth_receiver_->receive());
-  nvidia::isaac::CameraMessageParts depth_message = UNWRAP_OR_RETURN(nvidia::isaac::GetCameraMessage(depth_entity));
+  nvidia::isaac::CameraMessageParts depth_message = UNWRAP_OR_RETURN(
+    nvidia::isaac::GetCameraMessage(depth_entity));
   RETURN_IF_ERROR(validateDepthMessage(depth_message));
 
   nvidia::isaac::CameraMessageParts image_message;
@@ -73,14 +74,17 @@ gxf_result_t DepthToPointCloud::tick()
   }
 
   // Create new message
-  PointCloudProperties point_cloud_properties = createPointCloudProperties(depth_message, skip_.get());
+  PointCloudProperties point_cloud_properties = createPointCloudProperties(
+    depth_message, skip_.get());
   nvidia::isaac_ros::messages::PointCloudMessageParts point_cloud_message = UNWRAP_OR_RETURN(
-    nvidia::isaac_ros::messages::CreatePointCloudMessage(context(), allocator_, point_cloud_properties.n_points, colorize_point_cloud_));
+    nvidia::isaac_ros::messages::CreatePointCloudMessage(
+      context(), allocator_, point_cloud_properties.n_points, colorize_point_cloud_));
 
   point_cloud_message.info->use_color = colorize_point_cloud_;
 
   DepthProperties depth_properties = createDepthProperties(depth_message);
-  cloud_compute_.DepthToPointCloudCuda(depth_message, image_message, point_cloud_message, point_cloud_properties, depth_properties, colorize_point_cloud_,
+  cloud_compute_.DepthToPointCloudCuda(depth_message, image_message, point_cloud_message,
+    point_cloud_properties, depth_properties, colorize_point_cloud_,
   skip_.get());
 
   // Forward the timestamp from the depth message
@@ -89,14 +93,13 @@ gxf_result_t DepthToPointCloud::tick()
   return gxf::ToResultCode(point_cloud_transmitter_->publish(point_cloud_message.message));
 }
 
-gxf_result_t DepthToPointCloud::stop()
-{
+gxf_result_t DepthToPointCloud::stop() {
   return GXF_SUCCESS;
 }
 
-gxf::Expected<void> DepthToPointCloud::validateImageMessage(const nvidia::isaac::CameraMessageParts& depth_message,
-                                                            const nvidia::isaac::CameraMessageParts& image_message)
-{
+gxf::Expected<void> DepthToPointCloud::validateImageMessage(
+  const nvidia::isaac::CameraMessageParts& depth_message,
+  const nvidia::isaac::CameraMessageParts& image_message) {
   if (depth_message.frame->storage_type() != image_message.frame->storage_type()) {
     GXF_LOG_ERROR("Input image image must be stored in the same type as input depth");
     return gxf::Unexpected{GXF_INVALID_DATA_FORMAT};
@@ -124,8 +127,8 @@ gxf::Expected<void> DepthToPointCloud::validateImageMessage(const nvidia::isaac:
   return gxf::Expected<void>{};
 }
 
-gxf::Expected<void> DepthToPointCloud::validateDepthMessage(const nvidia::isaac::CameraMessageParts& depth_message)
-{
+gxf::Expected<void> DepthToPointCloud::validateDepthMessage(
+  const nvidia::isaac::CameraMessageParts& depth_message) {
   if (depth_message.frame->storage_type() != gxf::MemoryStorageType::kDevice) {
     GXF_LOG_ERROR("Input depth image must be stored in "
                   "gxf::MemoryStorageType::kDevice");
@@ -153,13 +156,13 @@ gxf::Expected<void> DepthToPointCloud::validateDepthMessage(const nvidia::isaac:
 
 PointCloudProperties DepthToPointCloud::createPointCloudProperties(
   const nvidia::isaac::CameraMessageParts & depth_img,
-  const int skip)
-{
+  const int skip) {
   PointCloudProperties point_cloud_properties;
 
   const int point_step = colorize_point_cloud_ ? 4 : 3;
 
-  point_cloud_properties.n_points = depth_img.intrinsics->dimensions.y * depth_img.intrinsics->dimensions.x / skip;
+  point_cloud_properties.n_points = depth_img.intrinsics->dimensions.y *
+                                    depth_img.intrinsics->dimensions.x / skip;
   point_cloud_properties.point_step = point_step;
   point_cloud_properties.x_offset = 0;
   point_cloud_properties.y_offset = 1;
@@ -172,8 +175,7 @@ PointCloudProperties DepthToPointCloud::createPointCloudProperties(
 }
 
 DepthProperties DepthToPointCloud::createDepthProperties(
-  const nvidia::isaac::CameraMessageParts & depth_img)
-{
+  const nvidia::isaac::CameraMessageParts & depth_img) {
   DepthProperties depth_properties;
 
   depth_properties.width = depth_img.intrinsics->dimensions.x;
@@ -192,4 +194,4 @@ DepthProperties DepthToPointCloud::createDepthProperties(
 
 }  // namespace depth_image_proc
 }  // namespace isaac_ros
-}  // nvidia
+}  // namespace nvidia

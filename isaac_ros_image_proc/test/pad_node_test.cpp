@@ -15,101 +15,79 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
-#include "pad_node.hpp"
+#include <gmock/gmock.h>
+#include "isaac_ros_image_proc/pad_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 // Objective: to cover code lines where exceptions are thrown
 // Approach: send Invalid Arguments for node parameters to trigger the exception
 
-class PadNodeTestSuite : public ::testing::Test
+TEST(pad_node_test, test_unsupported_padding_type)
 {
-protected:
-  void SetUp() {rclcpp::init(0, nullptr);}
-  void TearDown() {(void)rclcpp::shutdown();}
-};
-
-
-void test_unsupported_padding_type()
-{
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("padding_type", "INVALID");
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "padding_type:='INVALID'",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::PadNode pad_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Unsupported padding type") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::PadNode pad_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported padding type"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
-void test_unsupported_border_type()
+TEST(pad_node_test, test_unsupported_border_type)
 {
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("padding_type", "CENTER");
+  options.append_parameter_override("border_type", "INVALID");
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "padding_type:='CENTER'",
-    "-p", "border_type:='INVALID'",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::PadNode pad_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Unsupported border type") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::PadNode pad_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported border type"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
-void test_invalid_border_pixel_channel_values()
+TEST(pad_node_test, test_invalid_border_pixel_color_value)
 {
+  rclcpp::init(0, nullptr);
   rclcpp::NodeOptions options;
-  options.arguments(
+  options.append_parameter_override("padding_type", "CENTER");
+  options.append_parameter_override("border_type", "CONSTANT");
+  options.append_parameter_override("border_pixel_color_value", std::vector<double>{0.0, 0.0});
+  EXPECT_THROW(
   {
-    "--ros-args",
-    "-p", "padding_type:='CENTER'",
-    "-p", "border_type:='CONSTANT'",
-    "-p", "border_pixel_color_value:=[0.0, 0.0, 0.0]",
-  });
-  try {
-    nvidia::isaac_ros::image_proc::PadNode pad_node(options);
-  } catch (const std::invalid_argument & e) {
-    std::string err(e.what());
-    if (err.find("Invalid length of border_pixel_channel_values") != std::string::npos) {
-      _exit(1);
+    try {
+      nvidia::isaac_ros::image_proc::PadNode pad_node(options);
+    } catch (const std::invalid_argument & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("Invalid length of border_pixel_channel_values"));
+      throw;
+    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
+      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
+      throw;
     }
-  }
-  _exit(0);
-}
-
-
-TEST_F(PadNodeTestSuite, test_unsupported_padding_type)
-{
-  EXPECT_EXIT(test_unsupported_padding_type(), testing::ExitedWithCode(1), "");
-}
-
-TEST_F(PadNodeTestSuite, test_unsupported_border_type)
-{
-  EXPECT_EXIT(test_unsupported_border_type(), testing::ExitedWithCode(1), "");
-}
-
-TEST_F(PadNodeTestSuite, test_invalid_border_pixel_channel_values)
-{
-  EXPECT_EXIT(test_invalid_border_pixel_channel_values(), testing::ExitedWithCode(1), "");
+  }, std::invalid_argument);
+  rclcpp::shutdown();
 }
 
 
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ::testing::GTEST_FLAG(death_test_style) = "threadsafe";
   return RUN_ALL_TESTS();
 }

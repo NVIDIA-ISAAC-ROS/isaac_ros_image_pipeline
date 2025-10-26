@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <string>
 
+#include "extensions/depth_image_proc/depth_to_point_cloud.hpp"
 #include "gxf/core/gxf.h"
 #include "gxf/std/extension_factory_helper.hpp"
-#include "extensions/depth_image_proc/depth_to_point_cloud.hpp"
 
 extern "C" {
 

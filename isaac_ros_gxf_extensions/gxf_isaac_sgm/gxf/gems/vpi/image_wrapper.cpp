@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,11 +34,12 @@ gxf::Expected<void> ImageWrapper::createFromVideoBuffer(
   image_data_.bufferType = VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR;
   image_data_.buffer.pitch.format = image_format;
   image_data_.buffer.pitch.numPlanes = 1;
-  image_data_.buffer.pitch.planes[0].data = video_buffer.pointer();
+  image_data_.buffer.pitch.planes[0].pBase = video_buffer.pointer();
   image_data_.buffer.pitch.planes[0].height = image_info.height;
   image_data_.buffer.pitch.planes[0].width = image_info.width;
   image_data_.buffer.pitch.planes[0].pixelType = pixel_type;
   image_data_.buffer.pitch.planes[0].pitchBytes = image_info.color_planes[0].stride;
+  image_data_.buffer.pitch.planes[0].offsetBytes = 0;
 
   auto ret = vpiImageCreateWrapper(&image_data_, nullptr, flags, &image_);
 
@@ -51,7 +52,7 @@ gxf::Expected<void> ImageWrapper::createFromVideoBuffer(
 }
 
 gxf::Expected<void> ImageWrapper::update(const gxf::VideoBuffer& video_buffer) {
-  image_data_.buffer.pitch.planes[0].data = video_buffer.pointer();
+  image_data_.buffer.pitch.planes[0].pBase = video_buffer.pointer();
   VPIStatus ret = vpiImageSetWrapper(image_, &image_data_);
 
   if (ret != VPI_SUCCESS) {

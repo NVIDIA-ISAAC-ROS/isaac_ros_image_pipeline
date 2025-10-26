@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,10 +41,6 @@ namespace isaac {
 
 namespace {
 
-// When using PVA+NVENC+VIC AKA Xavier Backend, input dimensions must be 1920x1080
-// https://docs.nvidia.com/vpi/group__VPI__StereoDisparityEstimator.html#ga54b192495300259dd7b94410ca86655c
-constexpr int32_t kXavierStereoWidth = 1920;
-constexpr int32_t kXavierStereoHeight = 1080;
 constexpr int32_t kTegraSupportedScale = 256;
 
 template <typename FAction>
@@ -70,9 +66,7 @@ struct SGMDisparity::Impl {
   // Left and right VPI images in stereo algorithm-specific format
   VPIImage left_formatted;
   VPIImage right_formatted;
-  // Left and right VPI images in stereo algorithm-specific format and size
-  VPIImage left_stereo_resized;
-  VPIImage right_stereo_resized;
+
   // Raw disparity, resized disparity, and confidence map in VPI-specific format
   VPIImage disparity_raw;
   VPIImage disparity_resized;
@@ -122,7 +116,7 @@ gxf_result_t SGMDisparity::registerInterface(gxf::Registrar* registrar) {
       "The confidence threshold for VPI SGM algorithm", 65023);
   result &= registrar->parameter(
       confidence_type_, "confidence_type", "Confidence Type",
-      "Defines the way the confidence values are computed", 0);  // VPI_STEREO_CONFIDENCE_ABSOLUTE
+      "Defines the way the confidence values are computed", (int)VPI_STEREO_CONFIDENCE_INFERENCE);
   result &= registrar->parameter(
       window_size_, "window_size", "Window Size", "The window size for SGM disparity calculation",
       7);
@@ -130,9 +124,9 @@ gxf_result_t SGMDisparity::registerInterface(gxf::Registrar* registrar) {
       num_passes_, "num_passes", "Num Passes", "The number of passes SGM takes to compute result",
       2);
   result &= registrar->parameter(
-      p1_, "p1_", "P1", "Penalty on disparity changes of +/- 1 between neighbor pixels.", 8);
+      p1_, "p1", "P1", "Penalty on disparity changes of +/- 1 between neighbor pixels.", 8);
   result &= registrar->parameter(
-      p2_, "p2_", "P2", "Penalty on disparity changes of more than 1 between neighbor pixels.",
+      p2_, "p2", "P2", "Penalty on disparity changes of more than 1 between neighbor pixels.",
       120);
   result &= registrar->parameter(p2_alpha_, "p2_alpha", "P2 Alpha", "Alpha for P2", 1);
   result &= registrar->parameter(quality_, "quality", "Quality", "Quality of disparity output", 1);
@@ -166,22 +160,27 @@ gxf_result_t SGMDisparity::start() {
   RETURN_IF_ERROR(
       CheckStatus(vpiInitStereoDisparityEstimatorCreationParams(&impl_->disparity_params)));
   impl_->disparity_params.maxDisparity = max_disparity_;
-  // VPI_BACKEND_XAVIER backend only accepts downscaleFactor = 4
-  // for all other backends default value of 1 is used
-  // https://docs.nvidia.com/vpi/group__VPI__StereoDisparityEstimator.html#ga54b192495300259dd7b94410ca86655c
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER) {
-    impl_->disparity_params.downscaleFactor = 4;
-  }
 
   // Fill it up with the best known good confidence threshold params
   RETURN_IF_ERROR(
       CheckStatus(vpiInitStereoDisparityEstimatorParams(&impl_->disparity_context_params)));
   impl_->disparity_context_params.confidenceThreshold = confidence_threshold_;
-  // https://docs.nvidia.com/vpi/StereoDisparity_8h_source.html#l00203
+  // Map confidence_type_ parameter directly to VPI enum, supporting all values
   // 0 = VPI_STEREO_CONFIDENCE_ABSOLUTE
   // 1 = VPI_STEREO_CONFIDENCE_RELATIVE
-  impl_->disparity_context_params.confidenceType = (confidence_type_ == 0) ?
-    VPI_STEREO_CONFIDENCE_ABSOLUTE : VPI_STEREO_CONFIDENCE_RELATIVE;
+  // 2 = VPI_STEREO_CONFIDENCE_INFERENCE
+  switch (static_cast<VPIStereoDisparityConfidenceType>(confidence_type_.get())) {
+    case VPI_STEREO_CONFIDENCE_ABSOLUTE:
+    case VPI_STEREO_CONFIDENCE_RELATIVE:
+    case VPI_STEREO_CONFIDENCE_INFERENCE:
+      impl_->disparity_context_params.confidenceType =
+        static_cast<VPIStereoDisparityConfidenceType>(confidence_type_.get());
+      break;
+    default:
+      // Fallback to RELATIVE if an invalid value is provided
+      impl_->disparity_context_params.confidenceType = VPI_STEREO_CONFIDENCE_RELATIVE;
+      break;
+  }
 
   impl_->disparity_context_params.windowSize = window_size_;
   impl_->disparity_context_params.numPasses = num_passes_;
@@ -194,8 +193,7 @@ gxf_result_t SGMDisparity::start() {
   // Convert Format Parameters
   RETURN_IF_ERROR(
       CheckStatus(vpiInitConvertImageFormatParams(&impl_->stereo_input_scale_params)));
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER ||
-      impl_->vpi_backends == vpi::VPI_BACKEND_ORIN) {
+  if (impl_->vpi_backends == vpi::VPI_BACKEND_JETSON) {
     impl_->stereo_input_scale_params.scale = kTegraSupportedScale;
   }
 
@@ -224,29 +222,13 @@ gxf_result_t SGMDisparity::tick() {
   const int width = left_image.frame->video_frame_info().width;
   const int height = left_image.frame->video_frame_info().height;
 
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER &&
-        (width != kXavierStereoWidth || height != kXavierStereoHeight)) {
-    GXF_LOG_WARNING(
-        "The input images are not %d x %d. They are %d x %d. SGM on Xavier assumes this",
-        kXavierStereoWidth, kXavierStereoHeight, width, height);
-    if (impl_->vpi_backends == vpi::VPI_BACKEND_ORIN ||
-        impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER) {
-      GXF_LOG_ERROR(
-          "SGM needs images in %d x %d for Xavier backend", kXavierStereoWidth,
-          kXavierStereoHeight);
-      return GXF_FAILURE;
-    }
-  }
-
   // Images from HAWK are in `GXF_SURFACE_LAYOUT_PITCH_LINEAR` which equate to
   // VPI_IMAGE_FORMAT_Y16_ER for CUDA and VPI_IMAGE_FORMAT_Y16_ER_BL for Tegra based devices
   const gxf::SurfaceLayout surface_layout = gxf::SurfaceLayout::GXF_SURFACE_LAYOUT_PITCH_LINEAR;
   const gxf::MemoryStorageType storage_type = gxf::MemoryStorageType::kDevice;
 
-  int disparity_width = impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER ? kXavierStereoWidth
-                                                                : width;
-  int disparity_height = impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER ? kXavierStereoHeight
-                                                                 : height;
+  int disparity_width = width;
+  int disparity_height = height;
   // Create a new camera message for the disparity output.
   CameraMessageParts disparity =
       UNWRAP_OR_RETURN(CreateCameraMessage<gxf::VideoFormat::GXF_VIDEO_FORMAT_D32F>(
@@ -260,7 +242,7 @@ gxf_result_t SGMDisparity::tick() {
     RETURN_IF_ERROR(impl_->disparity.update(*disparity.frame));
   } else {
     uint64_t image_creation_flags = impl_->vpi_flags;
-    if (impl_->vpi_backends == vpi::VPI_BACKEND_ORIN) {
+    if (impl_->vpi_backends == vpi::VPI_BACKEND_JETSON) {
       image_creation_flags |= VPI_RESTRICT_MEM_USAGE;
     }
     // Recreate left and right input VPI images
@@ -273,15 +255,12 @@ gxf_result_t SGMDisparity::tick() {
     VPIImageFormat disparityFormat = VPI_IMAGE_FORMAT_S16;
     VPIImageFormat confidenceFormat = VPI_IMAGE_FORMAT_U16;
     VPIImageFormat stereoPayloadFormat = VPI_IMAGE_FORMAT_Y16_ER;
-    if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER ||
-        impl_->vpi_backends == vpi::VPI_BACKEND_ORIN) {
+    if (impl_->vpi_backends == vpi::VPI_BACKEND_JETSON) {
       stereoPayloadFormat = VPI_IMAGE_FORMAT_Y8_ER_BL;
     }
 
-    if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER ||
-          impl_->vpi_backends == vpi::VPI_BACKEND_ORIN) {
-      // VPI_BACKEND_XAVIER and VPI_BACKEND_ORIN backend Y16 Block linear format.
-      // TODO(kchahal): Not tested on Xavier
+    if (impl_->vpi_backends == vpi::VPI_BACKEND_JETSON) {
+      // VPI_BACKEND_JETSON backend Y16 Block linear format.
       impl_->stereo_format = VPI_IMAGE_FORMAT_Y8_ER_BL;
     } else if (impl_->vpi_flags == VPI_BACKEND_CUDA) {
       // CUDA x86 pipeline
@@ -301,20 +280,6 @@ gxf_result_t SGMDisparity::tick() {
     RETURN_IF_ERROR(CheckStatus(vpiImageCreate(
         disparity_width, disparity_height, impl_->stereo_format, impl_->vpi_flags,
         &impl_->right_formatted)));
-
-    // VPI_BACKEND_XAVIER backend only accepts 1920 x 1080 images.
-    // Create VPI images for left and right images of size 1920 x 1080
-    if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER) {
-      vpiImageDestroy(impl_->left_stereo_resized);
-      vpiImageDestroy(impl_->right_stereo_resized);
-
-      RETURN_IF_ERROR(CheckStatus(vpiImageCreate(
-          kXavierStereoWidth, kXavierStereoHeight, impl_->stereo_format,
-          impl_->vpi_backends, &impl_->left_stereo_resized)));
-      RETURN_IF_ERROR(CheckStatus(vpiImageCreate(
-          kXavierStereoWidth, kXavierStereoHeight, impl_->stereo_format,
-          impl_->vpi_backends, &impl_->right_stereo_resized)));
-    }
 
     vpiImageDestroy(impl_->disparity_raw);
     RETURN_IF_ERROR(CheckStatus(vpiImageCreate(
@@ -341,8 +306,7 @@ gxf_result_t SGMDisparity::tick() {
 
   // Resize for all backends
   auto backend_for_rescale = impl_->vpi_flags;
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER ||
-      impl_->vpi_backends == vpi::VPI_BACKEND_ORIN) {
+  if (impl_->vpi_backends == vpi::VPI_BACKEND_JETSON) {
     backend_for_rescale = VPI_BACKEND_VIC;
   }
 
@@ -358,29 +322,10 @@ gxf_result_t SGMDisparity::tick() {
   // lock a container for shared access while it's already locked for exclusive access.
   RETURN_IF_ERROR(CheckStatus(vpiStreamSync(impl_->stream)));
 
-  // VPI_BACKEND_XAVIER backend only accepts 1920 x 1080 images.
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER) {
-    RETURN_IF_ERROR(CheckStatus(vpiSubmitRescale(
-        impl_->stream, backend_for_rescale, impl_->left_formatted, impl_->left_stereo_resized,
-        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0)));
-    RETURN_IF_ERROR(CheckStatus(vpiSubmitRescale(
-        impl_->stream, backend_for_rescale, impl_->right_formatted, impl_->right_stereo_resized,
-        VPI_INTERP_LINEAR, VPI_BORDER_CLAMP, 0)));
-    // There's possibly a bug in VPI, without this sync there's a error trying to
-    // lock a container for shared access while it's already locked for exclusive access.
-    RETURN_IF_ERROR(CheckStatus(vpiStreamSync(impl_->stream)));
-
-    // Calculate raw disparity and confidence map
-    RETURN_IF_ERROR(CheckStatus(vpiSubmitStereoDisparityEstimator(
-        impl_->stream, 0, impl_->stereo_payload, impl_->left_stereo_resized,
-        impl_->right_stereo_resized, impl_->disparity_raw, impl_->confidence_map,
-        &impl_->disparity_context_params)));
-  } else {
-    // Calculate raw disparity and confidence map
-    RETURN_IF_ERROR(CheckStatus(vpiSubmitStereoDisparityEstimator(
-        impl_->stream, 0, impl_->stereo_payload, impl_->left_formatted, impl_->right_formatted,
-        impl_->disparity_raw, impl_->confidence_map, &impl_->disparity_context_params)));
-  }
+  // Calculate raw disparity and confidence map
+  RETURN_IF_ERROR(CheckStatus(vpiSubmitStereoDisparityEstimator(
+      impl_->stream, 0, impl_->stereo_payload, impl_->left_formatted, impl_->right_formatted,
+    impl_->disparity_raw, impl_->confidence_map, &impl_->disparity_context_params)));
 
   // Convert to ROS2 standard 32-bit float format
   RETURN_IF_ERROR(CheckStatus(vpiSubmitConvertImageFormat(
@@ -397,20 +342,7 @@ gxf_result_t SGMDisparity::tick() {
 
   // Pass through from right because left is zero
   *disparity.extrinsics = *right_image.extrinsics;
-
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER) {
-    // For Xavier as we rescale the disparity output to 1920 x 1080, we need to rescale the focal
-    // length as well.
-    gxf::Expected<gxf::CameraModel> maybe_scaled_model = tensor_ops::GetScaledCameraModel(
-        *left_image.intrinsics, disparity_width, disparity_height, false);
-    if (!maybe_scaled_model) {
-      GXF_LOG_ERROR("Intrinsics for disparity output could not be scaled");
-      return GXF_FAILURE;
-    }
-    *disparity.intrinsics = maybe_scaled_model.value();
-  } else {
-    *disparity.intrinsics = *left_image.intrinsics;
-  }
+  *disparity.intrinsics = *left_image.intrinsics;
 
   // Forward other components as is
   *disparity.sequence_number = *left_image.sequence_number;
@@ -420,20 +352,15 @@ gxf_result_t SGMDisparity::tick() {
 }
 
 gxf_result_t SGMDisparity::stop() {
-  if (!impl_->stream) {
+  if (impl_->stream) {
     CheckStatus(vpiStreamSync(impl_->stream));
+    vpiStreamDestroy(impl_->stream);
   }
-  vpiStreamDestroy(impl_->stream);
-
   impl_->left_input.release();
   impl_->right_input.release();
 
   vpiImageDestroy(impl_->left_formatted);
   vpiImageDestroy(impl_->right_formatted);
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_XAVIER) {
-    vpiImageDestroy(impl_->left_stereo_resized);
-    vpiImageDestroy(impl_->right_stereo_resized);
-  }
   vpiPayloadDestroy(impl_->stereo_payload);
   vpiImageDestroy(impl_->disparity_raw);
   vpiImageDestroy(impl_->confidence_map);

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2020-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ gxf_result_t TensorOperator::inferOutputInfo(gxf::Entity& input) {
 }
 
 gxf_result_t TensorOperator::doForwardTargetCamera(gxf::Expected<nvidia::gxf::Entity> input_message,
-                                                gxf::Expected<nvidia::gxf::Entity> output_message) {
+  gxf::Expected<nvidia::gxf::Entity> output_message) {
   return RerouteMessage<gxf::CameraModel>(
     output_message.value(), input_message.value(),
     [](gxf::Handle<gxf::CameraModel> output, gxf::Handle<gxf::CameraModel> input) {
@@ -147,6 +147,10 @@ gxf_result_t TensorOperator::tick() {
   if (!input_message) {
     return input_message.error();
   }
+  if (input_message.value().get<gxf::EndOfStream>()) {
+     GXF_LOG_DEBUG("End Of Stream received at the receiver, returning success");
+     return GXF_SUCCESS;
+  }
   // Infer output ImageInfo and if it's no-op
   auto error = inferOutputInfo(input_message.value());
   if (error != GXF_SUCCESS) {
@@ -164,11 +168,11 @@ gxf_result_t TensorOperator::tick() {
   }
   // Pass through timestamp if presented in input message
   error =
-    RerouteMessage<gxf::Timestamp>(output_message.value(), input_message.value(),
-        [](gxf::Handle<gxf::Timestamp> output, gxf::Handle<gxf::Timestamp> input) {
-          *output = *input;
-          return GXF_SUCCESS;
-        });
+      RerouteMessage<gxf::Timestamp>(output_message.value(), input_message.value(),
+          [](gxf::Handle<gxf::Timestamp> output, gxf::Handle<gxf::Timestamp> input) {
+            *output = *input;
+            return GXF_SUCCESS;
+      });
   if (error != GXF_SUCCESS) {
     return error;
   }

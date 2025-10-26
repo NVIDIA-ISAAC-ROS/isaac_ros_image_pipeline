@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,8 +36,6 @@ constexpr VPIBackend ToVpiBackendType(const ComputeEngine & computeEngine) {
         return VPIBackend::VPI_BACKEND_CUDA;
     case ComputeEngine::VIC:
         return VPIBackend::VPI_BACKEND_VIC;
-    case ComputeEngine::NVENC:
-        return VPIBackend::VPI_BACKEND_NVENC;
     default:
         return VPIBackend::VPI_BACKEND_INVALID;
     }
@@ -178,8 +176,6 @@ static inline std::string getVPIBackendString(VPIBackend vpiBackend) {
         return "VIC";
     case VPIBackend::VPI_BACKEND_PVA:
         return "PVA";
-    case VPIBackend::VPI_BACKEND_NVENC:
-        return "NVENC";
     case VPIBackend::VPI_BACKEND_INVALID:
         return "INVALID";
     default:

@@ -47,6 +47,8 @@ class ITensorOperatorStream {
     // Public Accessor Method(s)
     virtual std::error_code Status() noexcept = 0;
 
+    virtual std::error_code SyncStream() = 0;
+
     virtual std::error_code GenerateWarpFromCameraModel(ImageWarp& warp,
                                                         const ImageGrid& grid,
                                                         const CameraModel& source,

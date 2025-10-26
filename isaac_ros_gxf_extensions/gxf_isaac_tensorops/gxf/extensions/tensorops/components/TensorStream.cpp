@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,12 +48,8 @@ gxf::Expected<cvcore::tensor_ops::ComputeEngine> GetComputeEngineType(const std:
     return  cvcore::tensor_ops::ComputeEngine::PVA;
   } else if (type == "VIC") {
     return  cvcore::tensor_ops::ComputeEngine::VIC;
-  } else if (type == "NVENC") {
-    return  cvcore::tensor_ops::ComputeEngine::NVENC;
   } else if (type == "GPU") {
     return  cvcore::tensor_ops::ComputeEngine::GPU;
-  } else if (type == "DLA") {
-    return cvcore::tensor_ops::ComputeEngine::DLA;
   } else if (type == "COMPUTE_FAULT") {
     return cvcore::tensor_ops::ComputeEngine::COMPUTE_FAULT;
   } else {
