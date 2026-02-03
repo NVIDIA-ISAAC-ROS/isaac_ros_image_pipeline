@@ -304,12 +304,6 @@ gxf_result_t SGMDisparity::tick() {
     impl_->prev_height = height;
   }
 
-  // Resize for all backends
-  auto backend_for_rescale = impl_->vpi_flags;
-  if (impl_->vpi_backends == vpi::VPI_BACKEND_JETSON) {
-    backend_for_rescale = VPI_BACKEND_VIC;
-  }
-
   // Convert input-format images to stereo-format images
   RETURN_IF_ERROR(CheckStatus(vpiSubmitConvertImageFormat(
       impl_->stream, VPI_BACKEND_CUDA, impl_->left_input.getImage(), impl_->left_formatted,
