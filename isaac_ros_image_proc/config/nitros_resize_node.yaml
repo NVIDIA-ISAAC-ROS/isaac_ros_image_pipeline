@@ -25,7 +25,7 @@ components:
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: camera_message_rx
-    min_sum: 1
+    min_size: 1
 - name: camera_info_message_rx
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
@@ -33,7 +33,7 @@ components:
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: camera_info_message_rx
-    min_sum: 1
+    min_size: 1
 - name: camera_message_tx
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:

@@ -54,6 +54,7 @@ void SetupNppStreamContext(NppStreamContext& context, cudaStream_t stream) {
     context.nMultiProcessorCount         = deviceProp.multiProcessorCount;
     context.nMaxThreadsPerMultiProcessor = deviceProp.maxThreadsPerMultiProcessor;
 
+    // Refer - https://gitlab-master.nvidia.com/cv/core-modules/tensor_ops/-/merge_requests/48#note_6602087
     context.nReserved0 = 0;
 
     error = cudaDeviceGetAttribute(&(context.nCudaDevAttrComputeCapabilityMajor),

@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>gxf_isaac_image_flip</name>
-  <version>4.0.0</version>
+  <version>4.1.0</version>
   <description>Image Flip GXF extension.</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -33,6 +33,9 @@ SPDX-License-Identifier: Apache-2.0
 
   <depend>isaac_ros_common</depend>
   <depend>isaac_ros_gxf</depend>
+  <depend>libnvvpi4</depend>
+
+  <build_depend>vpi4-dev</build_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

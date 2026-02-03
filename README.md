@@ -2,9 +2,9 @@
 
 NVIDIA-accelerated Image Pipeline.
 
-<div align="center"><img src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/100_right.jpg/" width="300px"/>
-<img src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/300_right_hallway2_rect.png/" width="300px"/></div>
-<div align="center"><img src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/300_right_hallway2_gray_rect.png/" width="300px"/></div>
+<div align="center"><img src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.1/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/100_right.jpg/" width="300px"/>
+<img src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.1/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/300_right_hallway2_rect.png/" width="300px"/></div>
+<div align="center"><img src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.1/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/300_right_hallway2_gray_rect.png/" width="300px"/></div>
 
 ## Overview
 
@@ -27,7 +27,7 @@ is as painless a transition as possible.
 > Some image pre-processing functions use specialized
 > hardware engines, which offload the GPU to make more compute
 > available for other tasks.
-<div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/isaac_ros_image_pipeline_nodegraph.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/isaac_ros_image_pipeline_nodegraph.png/" width="800px"/></a></div>
+<div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.1/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/isaac_ros_image_pipeline_nodegraph.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.1/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_image_pipeline/isaac_ros_image_pipeline_nodegraph.png/" width="800px"/></a></div>
 
 Rectify corrects for lens distortion from the received camera sensor
 message. The rectified image is resized to the input resolution for
@@ -51,9 +51,9 @@ This package is powered by [NVIDIA Isaac Transport for ROS (NITROS)](https://dev
 
 | Sample Graph<br/><br/>                                                                                                                                                                             | Input Size<br/><br/>   | AGX Thor<br/><br/>                                                                                                                                                        | x86_64 w/ RTX 5090<br/><br/>                                                                                                                                              |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Rectify Node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/benchmarks/isaac_ros_image_proc_benchmark/scripts/isaac_ros_rectify_node.py)<br/><br/>                     | 1080p<br/><br/>        | [1800 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_rectify_node-agx_thor.json)<br/><br/><br/>3.4 ms @ 30Hz<br/><br/>   | [2500 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_rectify_node-x86-5090.json)<br/><br/><br/>2.8 ms @ 30Hz<br/><br/>   |
-| [Stereo Disparity Node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/benchmarks/isaac_ros_stereo_image_proc_benchmark/scripts/isaac_ros_disparity_node.py)<br/><br/>   | 1080p<br/><br/>        | [217 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_disparity_node-agx_thor.json)<br/><br/><br/>51 ms @ 30Hz<br/><br/>   | [863 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_disparity_node-x86-5090.json)<br/><br/><br/>4.1 ms @ 30Hz<br/><br/>  |
-| [Stereo Disparity Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/benchmarks/isaac_ros_stereo_image_proc_benchmark/scripts/isaac_ros_disparity_graph.py)<br/><br/> | 1080p<br/><br/>        | [223 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_disparity_graph-agx_thor.json)<br/><br/><br/>5.6 ms @ 30Hz<br/><br/> | [634 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_disparity_graph-x86-5090.json)<br/><br/><br/>6.6 ms @ 30Hz<br/><br/> |
+| [Rectify Node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/benchmarks/isaac_ros_image_proc_benchmark/scripts/isaac_ros_rectify_node.py)<br/><br/>                     | 1080p<br/><br/>        | [1800 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/results/isaac_ros_rectify_node-agx_thor.json)<br/><br/><br/>3.4 ms @ 30Hz<br/><br/>   | [2500 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/results/isaac_ros_rectify_node-x86-5090.json)<br/><br/><br/>2.8 ms @ 30Hz<br/><br/>   |
+| [Stereo Disparity Node](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/benchmarks/isaac_ros_stereo_image_proc_benchmark/scripts/isaac_ros_disparity_node.py)<br/><br/>   | 1080p<br/><br/>        | [217 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/results/isaac_ros_disparity_node-agx_thor.json)<br/><br/><br/>51 ms @ 30Hz<br/><br/>   | [863 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/results/isaac_ros_disparity_node-x86-5090.json)<br/><br/><br/>4.1 ms @ 30Hz<br/><br/>  |
+| [Stereo Disparity Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/benchmarks/isaac_ros_stereo_image_proc_benchmark/scripts/isaac_ros_disparity_graph.py)<br/><br/> | 1080p<br/><br/>        | [223 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/results/isaac_ros_disparity_graph-agx_thor.json)<br/><br/><br/>5.6 ms @ 30Hz<br/><br/> | [634 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.1/results/isaac_ros_disparity_graph-x86-5090.json)<br/><br/><br/>6.6 ms @ 30Hz<br/><br/> |
 
 ---
 
@@ -78,4 +78,4 @@ Please visit the [Isaac ROS Documentation](https://nvidia-isaac-ros.github.io/re
 
 ## Latest
 
-Update 2025-10-24: Support for ROS 2 Jazzy with VPI 4.0
+Update 2026-02-02: Support for two new Docker-optional development and deployment modes
