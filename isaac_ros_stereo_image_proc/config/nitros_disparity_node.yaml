@@ -133,7 +133,7 @@ components:
     right_image_receiver: data_receiver_right
     output_transmitter: data_transmitter
     min_disparity: 0
-    max_disparity: 64
+    max_disparity: 64.0
     backend: "CUDA"
 - type: nvidia::gxf::MemoryAvailableSchedulingTerm
   parameters:
@@ -307,7 +307,7 @@ components:
     disparity_receiver: disparity_in
     output_transmitter: data_transmitter
     min_disparity: 0
-    max_disparity: 64
+    max_disparity: 64.0
 ---
 name: sink
 components:

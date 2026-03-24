@@ -17,6 +17,7 @@
 
 """Epipolar line validation test for the Isaac ROS Rectify node."""
 
+import json
 import os
 import pathlib
 import random
@@ -35,6 +36,19 @@ VISUALIZE = False
 @pytest.mark.rostest
 def generate_test_description():
     """Generate launch description with all ROS 2 nodes for testing."""
+    test_cases_dir = pathlib.Path(__file__).parent / 'test_cases' / 'rectify_stereo'
+    camera_info_left_paths = list(test_cases_dir.glob('*/camera_info_left.json'))
+
+    if not camera_info_left_paths:
+        raise ValueError(f'No test cases found in {test_cases_dir}')
+
+    first_info_path = camera_info_left_paths[0]
+    with open(first_info_path, 'r') as f:
+        cam_info = json.load(f)
+
+    output_width = cam_info['width']
+    output_height = cam_info['height']
+
     composable_nodes = [
         launch_ros.descriptions.ComposableNode(
             name='left_rectify_node',
@@ -42,8 +56,8 @@ def generate_test_description():
             plugin='nvidia::isaac_ros::image_proc::RectifyNode',
             namespace=IsaacROSStereoRectifyEpipolarTest.generate_namespace(),
             parameters=[{
-                'output_width': 1920,
-                'output_height': 1200
+                'output_width': output_width,
+                'output_height': output_height
             }],
             remappings=[
                 ('image_raw', 'left_image_raw'),
@@ -57,8 +71,8 @@ def generate_test_description():
             plugin='nvidia::isaac_ros::image_proc::RectifyNode',
             namespace=IsaacROSStereoRectifyEpipolarTest.generate_namespace(),
             parameters=[{
-                'output_width': 1920,
-                'output_height': 1200,
+                'output_width': output_width,
+                'output_height': output_height,
             }],
             remappings=[
                 ('image_raw', 'right_image_raw'),
@@ -194,10 +208,28 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
                 print(CORNER_ROW_DIFF_THRESHOLD)
                 print('row_diffs :')
                 print(row_diffs)
+
+            max_row_diff = max(row_diffs) if row_diffs else 0
+            mean_row_diff = sum(row_diffs) / len(row_diffs) if row_diffs else 0
+            error_msg_row = (
+                f'\nStereo epipolar test failed '
+                f'(Row Difference Test):\n'
+                f'- Max row difference of {max_row_diff:.2f} px '
+                f'exceeded the {CORNER_ROW_DIFF_THRESHOLD} px '
+                f'threshold.\n'
+                f'- Mean row difference was '
+                f'{mean_row_diff:.2f} px.\n\n'
+                f'Note on Calibration Quality:\n'
+                f'- The expected range for a "good" calibration '
+                f'is a mean error < 0.5 px and max error '
+                f'< 1-2 px.\n'
+                f'- While this test failed, downstream packages '
+                f'consuming the rectified images may '
+                f'still function with degraded performance.'
+            )
             self.assertFalse(
                 any(diff > CORNER_ROW_DIFF_THRESHOLD for diff in row_diffs),
-                'Difference between corners row values in left and right images'
-                'are not within threshold')
+                error_msg_row)
 
             """
             Test 2:
@@ -216,7 +248,18 @@ class IsaacROSStereoRectifyEpipolarTest(IsaacROSBaseTest):
                 print(EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD)
                 print('mean_slope_diffs :')
                 print(mean_slope_diffs)
+
+            error_msg_slope = (
+                f'\nStereo epipolar test failed (Slope Test):\n'
+                f'- Epipolar lines are not parallel (slope '
+                f'difference exceeded '
+                f'{EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD}).\n\n'
+                f'Note on Calibration Quality:\n'
+                f'- While this test failed, downstream packages '
+                f'consuming the rectified images may '
+                f'still function with degraded performance.'
+            )
             self.assertFalse(
-                any(mean_slope_diff > EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD
+                any(abs(mean_slope_diff) > EPIPOLAR_LINES_SLOPE_DIFF_THRESHOLD
                     for mean_slope_diff in mean_slope_diffs),
-                'Epipolar lines are not parallel!')
+                error_msg_slope)

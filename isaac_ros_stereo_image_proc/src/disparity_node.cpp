@@ -130,7 +130,7 @@ DisparityNode::DisparityNode(const rclcpp::NodeOptions & options)
     EXTENSIONS,
     PACKAGE_NAME),
   vpi_backend_(declare_parameter<std::string>("backend", "CUDA")),
-  max_disparity_(declare_parameter<float>("max_disparity", 256)),
+  max_disparity_(declare_parameter<float>("max_disparity", 256.0)),
   confidence_threshold_(declare_parameter<int>("confidence_threshold", 60000)),
   confidence_type_(declare_parameter<int>("confidence_type", 0)),
   window_size_(declare_parameter<int>("window_size", 7)),

@@ -19,6 +19,8 @@ from typing import Any, Dict
 
 from isaac_ros_examples import IsaacROSLaunchFragment
 import launch
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
@@ -27,15 +29,34 @@ class IsaacROSDisparityLaunchFragment(IsaacROSLaunchFragment):
 
     @staticmethod
     def get_composable_nodes(interface_specs: Dict[str, Any]) -> Dict[str, ComposableNode]:
+        backend = LaunchConfiguration('backend')
+        max_disparity = LaunchConfiguration('max_disparity')
+        confidence_threshold = LaunchConfiguration('confidence_threshold')
+
         return {
             'disparity_node': ComposableNode(
                 package='isaac_ros_stereo_image_proc',
                 plugin='nvidia::isaac_ros::stereo_image_proc::DisparityNode',
                 name='disparity',
                 namespace='',
+                parameters=[{
+                    'backend': backend,
+                    'max_disparity': max_disparity,
+                    'confidence_threshold': confidence_threshold,
+                }],
                 remappings=[('left/camera_info', 'left/camera_info_rect'),
                             ('right/camera_info', 'right/camera_info_rect')]
             )
+        }
+
+    @staticmethod
+    def get_launch_actions(interface_specs: Dict[str, Any]) -> \
+            Dict[str, launch.actions.OpaqueFunction]:
+        return {
+            'backend': DeclareLaunchArgument('backend', default_value='CUDA'),
+            'max_disparity': DeclareLaunchArgument('max_disparity', default_value='256.0'),
+            'confidence_threshold': DeclareLaunchArgument(
+                'confidence_threshold', default_value='60000'),
         }
 
 
