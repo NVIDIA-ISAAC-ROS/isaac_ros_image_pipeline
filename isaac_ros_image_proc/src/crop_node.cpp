@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,9 @@
 #include <string>
 #include <utility>
 
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_common/qos.hpp"
-
-#include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image.hpp"
-
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
+#include "isaac_ros_cvcuda_utils/cvcuda_utilities.hpp"
 
 namespace nvidia
 {
@@ -36,97 +32,8 @@ namespace isaac_ros
 {
 namespace image_proc
 {
-
-using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
-
-constexpr char INPUT_CAM_COMPONENT_KEY[] = "input_compositor/cam_info_in";
-constexpr char INPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
-constexpr char INPUT_CAM_TOPIC_NAME[] = "camera_info";
-
-constexpr char INPUT_COMPONENT_KEY[] = "input_compositor/image_in";
-constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
-constexpr char INPUT_TOPIC_NAME[] = "image";
-
-constexpr char OUTPUT_COMPONENT_KEY[] = "image_sink/sink";
-constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_bgr8";
-constexpr char OUTPUT_TOPIC_NAME[] = "crop/image";
-
-constexpr char OUTPUT_CAM_COMPONENT_KEY[] = "camera_info_sink/sink";
-constexpr char OUTPUT_DEFAULT_CAM_INFO_FORMAT[] = "nitros_camera_info";
-constexpr char OUTPUT_CAM_TOPIC_NAME[] = "crop/camera_info";
-
-constexpr char APP_YAML_FILENAME[] = "config/nitros_crop_node.yaml";
-constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
-
-const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
-  {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
-  {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"gxf_isaac_message_compositor", "gxf/lib/libgxf_isaac_message_compositor.so"},
-  {"gxf_isaac_tensorops", "gxf/lib/libgxf_isaac_tensorops.so"},
-};
-const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
-  "isaac_ros_image_proc",
-};
-const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
-const std::vector<std::string> GENERATOR_RULE_FILENAMES = {
-  "config/namespace_injector_rule_crop.yaml",
-};
-const std::map<gxf::optimizer::ComponentKey, std::string> COMPATIBLE_DATA_FORMAT_MAP = {
-  {INPUT_COMPONENT_KEY, INPUT_DEFAULT_TENSOR_FORMAT},
-  {OUTPUT_COMPONENT_KEY, OUTPUT_DEFAULT_TENSOR_FORMAT}
-};
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
-  {INPUT_CAM_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = INPUT_DEFAULT_CAM_INFO_FORMAT,
-      .topic_name = INPUT_CAM_TOPIC_NAME,
-    }
-  },
-  {INPUT_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = INPUT_DEFAULT_TENSOR_FORMAT,
-      .topic_name = INPUT_TOPIC_NAME,
-    }
-  },
-  {OUTPUT_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = OUTPUT_DEFAULT_TENSOR_FORMAT,
-      .topic_name = OUTPUT_TOPIC_NAME,
-      .frame_id_source_key = INPUT_COMPONENT_KEY
-    }
-  },
-  {OUTPUT_CAM_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = OUTPUT_DEFAULT_CAM_INFO_FORMAT,
-      .topic_name = OUTPUT_CAM_TOPIC_NAME,
-      .frame_id_source_key = INPUT_CAM_COMPONENT_KEY,
-    }
-  }
-};
-#pragma GCC diagnostic pop
-
-// ROS image type to Nitros image type mapping
+using nvidia::isaac_ros::nitros::NitrosImage;
 namespace img_encodings = sensor_msgs::image_encodings;
-const std::unordered_map<std::string, std::string> ROS_2_NITROS_FORMAT_MAP({
-        {img_encodings::RGB8, nitros::nitros_image_rgb8_t::supported_type_name},
-        {img_encodings::RGB16, nitros::nitros_image_rgb16_t::supported_type_name},
-        {img_encodings::BGR8, nitros::nitros_image_bgr8_t::supported_type_name},
-        {img_encodings::BGR16, nitros::nitros_image_bgr16_t::supported_type_name},
-        {img_encodings::MONO8, nitros::nitros_image_mono8_t::supported_type_name},
-        {img_encodings::MONO16, nitros::nitros_image_mono16_t::supported_type_name},
-        {img_encodings::NV24, nitros::nitros_image_nv24_t::supported_type_name},
-        {"nv12", nitros::nitros_image_nv12_t::supported_type_name},
-      });
 
 // User string to CROP mode
 const std::unordered_map<std::string, CropMode> CROP_MODE_MAP({
@@ -143,41 +50,31 @@ const std::unordered_map<std::string, CropMode> CROP_MODE_MAP({
       });
 
 CropNode::CropNode(const rclcpp::NodeOptions & options)
-: nitros::NitrosNode(options,
-    APP_YAML_FILENAME,
-    CONFIG_MAP,
-    PRESET_EXTENSION_SPEC_NAMES,
-    EXTENSION_SPEC_FILENAMES,
-    GENERATOR_RULE_FILENAMES,
-    EXTENSIONS,
-    PACKAGE_NAME),
+: rclcpp::Node("crop_node", options),
   input_width_(declare_parameter<int64_t>("input_width", 0)),
   input_height_(declare_parameter<int64_t>("input_height", 0)),
   crop_width_(declare_parameter<int64_t>("crop_width", 0)),
   crop_height_(declare_parameter<int64_t>("crop_height", 0)),
-  num_blocks_(declare_parameter<int64_t>("num_blocks", 40)),
+  roi_top_left_x_(declare_parameter<int64_t>("roi_top_left_x", 0)),
+  roi_top_left_y_(declare_parameter<int64_t>("roi_top_left_y", 0)),
   crop_mode_(declare_parameter<std::string>("crop_mode", "")),
-  roi_{static_cast<size_t>(declare_parameter<int64_t>("roi_top_left_x", 0)),
-    static_cast<size_t>(declare_parameter<int64_t>("roi_top_left_y", 0)),
-    static_cast<size_t>(crop_width_),
-    static_cast<size_t>(crop_height_),
-  }
+  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
+  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
+  input_queue_size_(declare_parameter<int64_t>("input_queue_size", 10)),
+  output_queue_size_(declare_parameter<int64_t>("output_queue_size", 10)),
+  image_sub_{},
+  camera_info_sub_{},
+  exact_sync_{ExactPolicy{input_queue_size_}, image_sub_, camera_info_sub_}
 {
   RCLCPP_DEBUG(get_logger(), "[CropNode] Constructor");
 
-  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
-  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
-    *this, "DEFAULT", "input_qos");
-  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
-    *this, "DEFAULT", "output_qos");
-  for (auto & config : config_map_) {
-    if (config.second.topic_name == INPUT_CAM_TOPIC_NAME ||
-      config.second.topic_name == INPUT_TOPIC_NAME)
-    {
-      config.second.qos = input_qos_;
-    } else {
-      config.second.qos = output_qos_;
-    }
+  roi_ = {static_cast<int32_t>(roi_top_left_x_),
+    static_cast<int32_t>(roi_top_left_y_),
+    static_cast<int32_t>(crop_width_),
+    static_cast<int32_t>(crop_height_)};
+  if (roi_.x < 0 || roi_.y < 0 || roi_.width < 0 || roi_.height < 0) {
+    RCLCPP_ERROR(get_logger(), "[CropNode] Invalid ROI. Please select the valid value.");
+    throw std::invalid_argument("[CropNode] Invalid ROI. Please select the valid value.");
   }
 
   if (input_width_ <= 0 || input_height_ <= 0 || crop_width_ <= 0 || crop_height_ <= 0) {
@@ -192,90 +89,190 @@ CropNode::CropNode(const rclcpp::NodeOptions & options)
     throw std::invalid_argument("[CropNode] Crop Mode is not set. Please select the valid value.");
   }
 
-  if (!crop_mode_.empty()) {
-    const auto crop_mode = CROP_MODE_MAP.find(crop_mode_);
-    if (crop_mode == std::end(CROP_MODE_MAP)) {
-      RCLCPP_ERROR(get_logger(), "[CropNode] Unsupported crop mode: [%s]", crop_mode_.c_str());
-      throw std::invalid_argument("[CropNode] Unsupported crop mode.");
-    } else {
-      CalculateResizeAndCropParams(crop_mode->second);
-    }
+  const auto crop_mode = CROP_MODE_MAP.find(crop_mode_);
+  if (crop_mode == std::end(CROP_MODE_MAP)) {
+    RCLCPP_ERROR(get_logger(), "[CropNode] Unsupported crop mode: [%s]", crop_mode_.c_str());
+    throw std::invalid_argument("[CropNode] Unsupported crop mode.");
+  } else {
+    CalculateResizeAndCropParams(crop_mode->second);
   }
 
-  registerSupportedType<nvidia::isaac_ros::nitros::NitrosCameraInfo>();
-  registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
+  // Create CUDA stream
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("crop_node");
 
-  startNitrosNode();
+  // Create CUDA memory pool
+  cudaError_t err = pool_.create(
+    static_cast<size_t>(memory_pool_block_size_),
+    static_cast<size_t>(memory_pool_num_blocks_),
+    nvidia::isaac_ros::nitros::CUDAMemoryPool::MemoryType::Device);
+  CHECK_CUDA_ERROR(err, "Failed to create CUDA memory pool");
+  const rclcpp::QoS input_qos =
+    ::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")
+    .keep_last(input_queue_size_);
+  const rclcpp::QoS output_qos =
+    ::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")
+    .keep_last(output_queue_size_);
+  const rmw_qos_profile_t input_qos_profile = input_qos.get_rmw_qos_profile();
+
+  // Subscription options
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  // Publisher options
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  // Create subscribers
+  exact_sync_.registerCallback(
+    std::bind(
+      &CropNode::InputCallback, this,
+      std::placeholders::_1, std::placeholders::_2));
+  image_sub_.subscribe(this, "image", input_qos_profile, sub_options);
+  camera_info_sub_.subscribe(this, "camera_info", input_qos_profile, sub_options);
+  RCLCPP_DEBUG(get_logger(), "[CropNode] subscribers created");
+
+  // Create publishers
+  image_pub_ = create_publisher<NitrosImage>(
+    "crop/image", output_qos, pub_options);
+  camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
+    "crop/camera_info", output_qos);
+
+  RCLCPP_DEBUG(get_logger(), "[CropNode] publishers created");
+}
+
+
+CropNode::~CropNode() {}
+
+void CropNode::InputCallback(
+  const NitrosImage::ConstSharedPtr & nitros_image,
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info
+)
+{
+  RCLCPP_DEBUG(get_logger(), "[CropNode] InputCallback - SYNCHRONIZED!");
+
+  if (!nitros_image || !camera_info) {
+    throw std::runtime_error("[CropNode] No inputs received");
+  }
+
+  auto input_encoding = nitros_image->encoding;
+  cvcuda_utils::NVCVImageFormat format = cvcuda_utils::ToNVCVFormat(input_encoding);
+
+  int num_channels{sensor_msgs::image_encodings::numChannels(input_encoding)};
+  int bytes_per_channel = sensor_msgs::image_encodings::bitDepth(input_encoding) / CHAR_BIT;
+  auto input_handle = cvcuda_utils::WrapCVCUDATensor(
+    *nitros_image, nitros_image->get_read_handle(*cuda_stream_), format.format, num_channels,
+    bytes_per_channel);
+
+  auto output_msg = std::make_unique<NitrosImage>();
+  size_t output_step = crop_width_ * num_channels * bytes_per_channel;
+  auto output_write_handle = output_msg->from_pool(
+    pool_, crop_width_, crop_height_, output_step, input_encoding, *cuda_stream_);
+
+  auto output_handle = cvcuda_utils::WrapCVCUDATensor(
+    *output_msg, std::move(output_write_handle), format.format, num_channels,
+    bytes_per_channel);
+  crop_op_(*cuda_stream_, input_handle.get_tensor(), output_handle.get_tensor(),
+    roi_);
+
+  output_msg->timestamp_sec = nitros_image->timestamp_sec;
+  output_msg->timestamp_nsec = nitros_image->timestamp_nsec;
+  output_msg->frame_id = nitros_image->frame_id;
+
+  auto camera_info_output = std::make_unique<sensor_msgs::msg::CameraInfo>();
+  UpdateCameraInfo(*camera_info, *camera_info_output);
+
+  image_pub_->publish(std::move(output_msg));
+  camera_info_pub_->publish(std::move(camera_info_output));
+}
+
+void CropNode::UpdateCameraInfo(
+  const sensor_msgs::msg::CameraInfo & input_camera_info,
+  sensor_msgs::msg::CameraInfo & output_camera_info)
+{
+  output_camera_info = input_camera_info;
+
+  output_camera_info.width = crop_width_;
+  output_camera_info.height = crop_height_;
+  const float scaler_x = static_cast<float>(crop_width_) / input_camera_info.width;
+  const float scaler_y = static_cast<float>(crop_height_) / input_camera_info.height;
+  const float pixel_center = 0.5f;
+  // Update the focal length
+  output_camera_info.k[0] = input_camera_info.k[0] * scaler_x;
+  output_camera_info.k[4] = input_camera_info.k[4] * scaler_y;
+  // Update the principal point
+  output_camera_info.k[2] = (input_camera_info.k[2] + pixel_center) * scaler_x - pixel_center;
+  output_camera_info.k[5] = (input_camera_info.k[5] + pixel_center) * scaler_y - pixel_center;
+
+  output_camera_info.p[0] = output_camera_info.k[0];
+  output_camera_info.p[1] = 0;
+  output_camera_info.p[2] = output_camera_info.k[2];
+  output_camera_info.p[3] = input_camera_info.p[3] * output_camera_info.p[0];
+  output_camera_info.p[4] = 0;
+  output_camera_info.p[5] = output_camera_info.k[4];
+  output_camera_info.p[6] = output_camera_info.k[5];
+  output_camera_info.p[7] = input_camera_info.p[7];
+  output_camera_info.p[8] = 0;
+  output_camera_info.p[9] = 0;
+  output_camera_info.p[10] = 1;
+  output_camera_info.p[11] = input_camera_info.p[11];
+
+  output_camera_info.roi.height = crop_height_;
+  output_camera_info.roi.width = crop_width_;
 }
 
 void CropNode::CalculateResizeAndCropParams(const CropMode & crop_mode)
 {
-  // Only in CropMode::kBBox user provided roi values are used.
+  roi_.width = static_cast<int32_t>(crop_width_);
+  roi_.height = static_cast<int32_t>(crop_height_);
   switch (crop_mode) {
     case CropMode::kCenter: {
-        roi_.top_left_x = (input_width_ - crop_width_) / 2;
-        roi_.top_left_y = (input_height_ - crop_height_) / 2;
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = (input_width_ - crop_width_) / 2;
+        roi_.y = (input_height_ - crop_height_) / 2;
         break;
       }
     case CropMode::kLeft: {
-        roi_.top_left_x = 0;
-        roi_.top_left_y = (input_height_ - crop_height_) / 2;
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = 0;
+        roi_.y = (input_height_ - crop_height_) / 2;
         break;
       }
     case CropMode::kRight: {
-        roi_.top_left_x = (input_width_ - crop_width_);
-        roi_.top_left_y = (input_height_ - crop_height_) / 2;
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = (input_width_ - crop_width_);
+        roi_.y = (input_height_ - crop_height_) / 2;
         break;
       }
     case CropMode::kTop: {
-        roi_.top_left_x = (input_width_ - crop_width_) / 2;
-        roi_.top_left_y = 0;
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = (input_width_ - crop_width_) / 2;
+        roi_.y = 0;
         break;
       }
     case CropMode::kBottom: {
-        roi_.top_left_x = (input_width_ - crop_width_) / 2;
-        roi_.top_left_y = (input_height_ - crop_height_);
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = (input_width_ - crop_width_) / 2;
+        roi_.y = (input_height_ - crop_height_);
         break;
       }
     case CropMode::kTopLeft: {
-        roi_.top_left_x = 0;
-        roi_.top_left_y = 0;
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = 0;
+        roi_.y = 0;
         break;
       }
     case CropMode::kTopRight: {
-        roi_.top_left_x = (input_width_ - crop_width_);
-        roi_.top_left_y = 0;
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = (input_width_ - crop_width_);
+        roi_.y = 0;
         break;
       }
     case CropMode::kBottomLeft: {
-        roi_.top_left_x = 0;
-        roi_.top_left_y = (input_height_ - crop_height_);
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = 0;
+        roi_.y = (input_height_ - crop_height_);
         break;
       }
     case CropMode::kBottomRight: {
-        roi_.top_left_x = (input_width_ - crop_width_);
-        roi_.top_left_y = (input_height_ - crop_height_);
-        roi_.width = crop_width_;
-        roi_.height = crop_height_;
+        roi_.x = (input_width_ - crop_width_);
+        roi_.y = (input_height_ - crop_height_);
         break;
       }
-    case CropMode::kBBox: {break;}   // Use the one set by the user
+    case CropMode::kBBox: {
+        // Use user provided roi values.
+        break;
+      }
     default: {
         RCLCPP_ERROR(get_logger(), "Unsupported CropMode.");
         throw std::runtime_error("Unsupported CropMode.");
@@ -283,55 +280,9 @@ void CropNode::CalculateResizeAndCropParams(const CropMode & crop_mode)
   }
 }
 
-void CropNode::postLoadGraphCallback()
-{
-  RCLCPP_INFO(get_logger(), "[CropNode] postLoadGraphCallback().");
-
-  // Update resize parameters
-  getNitrosContext().setParameterUInt64(
-    "crop_and_resizer", "nvidia::isaac::tensor_ops::CropAndResize", "output_width",
-    (uint64_t)crop_width_);
-
-  getNitrosContext().setParameterUInt64(
-    "crop_and_resizer", "nvidia::isaac::tensor_ops::CropAndResize", "output_height",
-    (uint64_t)crop_height_);
-
-  // The minimum number of memory blocks is set based on the receiver queue capacity
-  uint64_t num_blocks = std::max(static_cast<int>(num_blocks_), 40);
-  getNitrosContext().setParameterUInt64(
-    "crop_and_resizer", "nvidia::gxf::BlockMemoryPool", "num_blocks",
-    num_blocks);
-
-  const gxf::optimizer::ComponentInfo component = {
-    "nvidia::isaac_ros::MessageRelay",  // component_type_name
-    "sink",                             // component_name
-    "image_sink"                        // entity_name
-  };
-  std::string image_format = getFinalDataFormat(component);
-  uint64_t block_size = calculate_image_size(image_format, crop_width_, crop_height_);
-
-  getNitrosContext().setParameterUInt64(
-    "bbox", "nvidia::isaac::tensor_ops::BBoxGenerator", "image_width", crop_width_);
-  getNitrosContext().setParameterUInt64(
-    "bbox", "nvidia::isaac::tensor_ops::BBoxGenerator", "image_height", crop_height_);
-  getNitrosContext().setParameterUInt64(
-    "bbox", "nvidia::isaac::tensor_ops::BBoxGenerator", "bbox_width", roi_.width);
-  getNitrosContext().setParameterUInt64(
-    "bbox", "nvidia::isaac::tensor_ops::BBoxGenerator", "bbox_height", roi_.height);
-  getNitrosContext().setParameterUInt64(
-    "bbox", "nvidia::isaac::tensor_ops::BBoxGenerator", "bbox_loc_x", roi_.top_left_x);
-  getNitrosContext().setParameterUInt64(
-    "bbox", "nvidia::isaac::tensor_ops::BBoxGenerator", "bbox_loc_y", roi_.top_left_y);
-
-  getNitrosContext().setParameterUInt64(
-    "crop_and_resizer", "nvidia::gxf::BlockMemoryPool", "block_size",
-    block_size);
-}
-
-CropNode::~CropNode() {}
-
 }  // namespace image_proc
 }  // namespace isaac_ros
 }  // namespace nvidia
 
+#include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::image_proc::CropNode)

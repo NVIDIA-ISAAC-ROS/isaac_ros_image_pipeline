@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,14 @@
 
 #include <climits>
 
-#include "isaac_ros_nitros_image_type/nitros_image_builder.hpp"
+#include "isaac_ros_cvcuda_utils/cvcuda_utilities.hpp"
+#include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_cvcuda_utils/cvcuda_handle.hpp"
 #include "nvcv/TensorDataAccess.hpp"
 #include "sensor_msgs/image_encodings.hpp"
+
+using nvidia::isaac_ros::nitros::NitrosImage;
+using nvidia::isaac_ros::nitros::CUDAMemoryPool;
 
 namespace nvidia
 {
@@ -29,75 +34,20 @@ namespace isaac_ros
 {
 namespace image_proc
 {
-
-namespace
-{
-
-inline void CheckCudaErrors(cudaError_t code, const char * file, const int line)
-{
-  if (code != cudaSuccess) {
-    const std::string message = "CUDA error returned at " + std::string(file) + ":" +
-      std::to_string(line) + ", Error code: " + std::to_string(code) +
-      " (" + std::string(cudaGetErrorString(code)) + ")";
-    throw std::runtime_error(message);
-  }
-}
-
-struct NVCVImageFormat
-{
-  nvcv::ImageFormat interleaved_format;
-  nvcv::ImageFormat interleaved_float_format;
-  std::string image_encoding_float;
-};
-
-NVCVImageFormat ToNVCVFormat(const std::string & image_encoding)
-{
-  static const std::unordered_map<std::string, NVCVImageFormat> str_to_nvcv_format({
-            {sensor_msgs::image_encodings::RGB8,
-              NVCVImageFormat{nvcv::FMT_RGB8, nvcv::FMT_RGBf32,
-                sensor_msgs::image_encodings::TYPE_32FC3}},
-            {sensor_msgs::image_encodings::BGR8,
-              NVCVImageFormat{nvcv::FMT_BGR8, nvcv::FMT_BGRf32,
-                sensor_msgs::image_encodings::TYPE_32FC3}},
-            {sensor_msgs::image_encodings::RGBA8,
-              NVCVImageFormat{nvcv::FMT_RGBA8, nvcv::FMT_RGBAf32,
-                sensor_msgs::image_encodings::TYPE_32FC4}},
-            {sensor_msgs::image_encodings::BGRA8,
-              NVCVImageFormat{nvcv::FMT_BGRA8, nvcv::FMT_BGRAf32,
-                sensor_msgs::image_encodings::TYPE_32FC4}},
-            {sensor_msgs::image_encodings::MONO8,
-              NVCVImageFormat{nvcv::FMT_U8, nvcv::FMT_F32,
-                sensor_msgs::image_encodings::TYPE_32FC1}},
-            {sensor_msgs::image_encodings::TYPE_32FC3,
-              NVCVImageFormat{nvcv::FMT_RGBf32, nvcv::FMT_RGBf32,
-                sensor_msgs::image_encodings::TYPE_32FC3}}
-          });
-  return str_to_nvcv_format.at(image_encoding);
-}
-
-constexpr size_t kBatchSize{1};
-
-}  // namespace
-
-ImageNormalizeNode::ImageNormalizeNode(const rclcpp::NodeOptions options)
+ImageNormalizeNode::ImageNormalizeNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("image_normalize_node", options),
   input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
   output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
-  nitros_img_sub_{std::make_shared<::nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        ::nvidia::isaac_ros::nitros::NitrosImageView>>(
-      this, "image", ::nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
-      std::bind(&ImageNormalizeNode::ImageNormalizeCallback, this,
-      std::placeholders::_1), nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
-      input_qos_)},
-  nitros_img_pub_{std::make_shared<
-      nvidia::isaac_ros::nitros::ManagedNitrosPublisher<nvidia::isaac_ros::nitros::NitrosImage>>(
-      this, "normalized_image",
-      nvidia::isaac_ros::nitros::nitros_image_32FC1_t::supported_type_name,
-      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_)},
   mean_param_{declare_parameter<std::vector<double>>("mean", {0.5, 0.5, 0.5})},
-  stddev_param_(declare_parameter<std::vector<double>>("stddev", {0.5, 0.5, 0.5}))
+  stddev_param_(declare_parameter<std::vector<double>>("stddev", {0.5, 0.5, 0.5})),
+  // Default assumes 3-channel RGB at 1920x1200.
+  // Pool will auto-resize if actual image requires more.
+  memory_pool_block_size_(declare_parameter<int64_t>(
+    "memory_pool_block_size", 1920 * 1200 * 3 * static_cast<int64_t>(sizeof(float)))),
+  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40))
 {
-  CheckCudaErrors(cudaStreamCreate(&stream_), __FILE__, __LINE__);
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("ImageNormalizeNode");
+
   std::vector<float> mean_float(mean_param_.begin(), mean_param_.end());
   std::vector<float> stddev_float(stddev_param_.begin(), stddev_param_.end());
   nvcv::TensorShape::ShapeType shape{nvcv::TensorShape::ShapeType{1, 1, 1,
@@ -113,100 +63,80 @@ ImageNormalizeNode::ImageNormalizeNode(const rclcpp::NodeOptions options)
   auto stddev_data = stddev_.exportData<nvcv::TensorDataStridedCuda>();
   auto stddev_access = nvcv::TensorDataAccessStridedImagePlanar::Create(*stddev_data);
 
-  CheckCudaErrors(
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  // Create subscribers and publishers
+  image_sub_ = create_subscription<NitrosImage>(
+    "image", input_qos_,
+    std::bind(&ImageNormalizeNode::imageSubCallback, this, std::placeholders::_1),
+    sub_options);
+  image_pub_ = create_publisher<NitrosImage>(
+    "normalized_image", output_qos_, pub_options);
+  CHECK_CUDA_ERROR(
     cudaMemcpy2D(
       mean_access->sampleData(0), mean_access->rowStride(), mean_float.data(),
       mean_float.size() * sizeof(float), mean_float.size() * sizeof(float), 1,
       cudaMemcpyHostToDevice),
-    __FILE__, __LINE__);
-  CheckCudaErrors(
+    "cudaMemcpy2D failed");
+  CHECK_CUDA_ERROR(
     cudaMemcpy2D(
       stddev_access->sampleData(0), stddev_access->rowStride(), stddev_float.data(),
       stddev_float.size() * sizeof(float), stddev_float.size() * sizeof(float), 1,
       cudaMemcpyHostToDevice),
-    __FILE__, __LINE__);
+    "cudaMemcpy2D failed");
 }
 
-void ImageNormalizeNode::ImageNormalizeCallback(
-  const ::nvidia::isaac_ros::nitros::NitrosImageView & img_msg)
+void ImageNormalizeNode::imageSubCallback(const NitrosImage::SharedPtr msg)
 {
-  const uint32_t img_width{img_msg.GetWidth()};
-  const uint32_t img_height{img_msg.GetHeight()};
-  const int img_channels{sensor_msgs::image_encodings::numChannels(img_msg.GetEncoding())};
-  const NVCVImageFormat format = ToNVCVFormat(img_msg.GetEncoding());
+  auto encoding = msg->encoding;
+  int num_channels{sensor_msgs::image_encodings::numChannels(encoding)};
+  int bytes_per_channel = sensor_msgs::image_encodings::bitDepth(encoding) / CHAR_BIT;
+  const cvcuda_utils::NVCVImageFormat format = cvcuda_utils::ToNVCVFormat(encoding);
 
-  nvcv::TensorDataStridedCuda::Buffer input_buffer;
-  input_buffer.strides[3] =
-    sensor_msgs::image_encodings::bitDepth(img_msg.GetEncoding()) / CHAR_BIT;
-  input_buffer.strides[2] = img_channels * input_buffer.strides[3];
-  input_buffer.strides[1] = img_msg.GetStride();
-  input_buffer.strides[0] = img_msg.GetHeight() * input_buffer.strides[1];
+  auto input_handle = cvcuda_utils::WrapCVCUDATensor(
+    *msg, msg->get_read_handle(*cuda_stream_),
+    format.format, num_channels, bytes_per_channel);
 
-  input_buffer.basePtr =
-    const_cast<NVCVByte *>(reinterpret_cast<const NVCVByte *>(img_msg.GetGpuData()));
+  const uint32_t output_step = msg->width * num_channels * sizeof(float);
 
-  nvcv::Tensor::Requirements input_reqs{nvcv::Tensor::CalcRequirements(
-      kBatchSize, {static_cast<int32_t>(img_msg.GetWidth()),
-        static_cast<int32_t>(img_msg.GetHeight())}, format.interleaved_format)};
+  const size_t required_size =
+    static_cast<size_t>(output_step) * static_cast<size_t>(msg->height);
+  if (!pool_.initialized() || required_size > pool_.block_size()) {
+    pool_.destroy();
+    const int64_t actual_block_size = std::max(
+      memory_pool_block_size_, static_cast<int64_t>(required_size));
+    CHECK_CUDA_ERROR(pool_.create(
+      static_cast<size_t>(actual_block_size),
+      static_cast<size_t>(memory_pool_num_blocks_),
+      CUDAMemoryPool::MemoryType::Device),
+      "Failed to create CUDA memory pool");
+  }
 
-  nvcv::TensorDataStridedCuda input_data{
-    nvcv::TensorShape{input_reqs.shape, input_reqs.rank, input_reqs.layout},
-    nvcv::DataType{input_reqs.dtype}, input_buffer};
+  auto output_msg = std::make_unique<NitrosImage>();
+  auto output_write_handle = output_msg->from_pool(
+    pool_, msg->width, msg->height, output_step,
+    format.float_encoding, *cuda_stream_);
+  num_channels = sensor_msgs::image_encodings::numChannels(format.float_encoding);
+  bytes_per_channel = sensor_msgs::image_encodings::bitDepth(format.float_encoding) / CHAR_BIT;
+  auto output_handle = cvcuda_utils::WrapCVCUDATensor(
+    *output_msg, std::move(output_write_handle),
+    format.float_format, num_channels, bytes_per_channel);
 
-  nvcv::Tensor input_tensor{nvcv::TensorWrapData(input_data)};
+  convert_op_(*cuda_stream_, input_handle.get_tensor(), output_handle.get_tensor(), 1.0f, 0.0f);
+  norm_op_(*cuda_stream_, output_handle.get_tensor(), mean_, stddev_, output_handle.get_tensor(),
+    1.0f, 0.0f, 0.0f, CVCUDA_NORMALIZE_SCALE_IS_STDDEV);
 
-  // Allocate the memory buffer ourselves rather than letting CV-CUDA allocate it
-  float * raw_output_buffer{nullptr};
-  const size_t output_buffer_size{img_width * img_height * img_channels * sizeof(float)};
-  CheckCudaErrors(
-    cudaMallocAsync(&raw_output_buffer, output_buffer_size, stream_), __FILE__, __LINE__);
+  output_msg->timestamp_sec = msg->timestamp_sec;
+  output_msg->timestamp_nsec = msg->timestamp_nsec;
+  output_msg->frame_id = msg->frame_id;
 
-  nvcv::TensorDataStridedCuda::Buffer output_buffer;
-  output_buffer.strides[3] = sizeof(float);
-  output_buffer.strides[2] = img_channels * output_buffer.strides[3];
-  output_buffer.strides[1] = img_msg.GetWidth() * output_buffer.strides[2];
-  output_buffer.strides[0] = img_msg.GetHeight() * output_buffer.strides[1];
-
-  output_buffer.basePtr = reinterpret_cast<NVCVByte *>(raw_output_buffer);
-
-  nvcv::Tensor::Requirements output_reqs{nvcv::Tensor::CalcRequirements(
-      kBatchSize,
-      {static_cast<int32_t>(img_msg.GetWidth()),
-        static_cast<int32_t>(img_msg.GetHeight())}, format.interleaved_float_format)};
-
-  nvcv::TensorDataStridedCuda output_data{
-    nvcv::TensorShape{output_reqs.shape, output_reqs.rank, output_reqs.layout},
-    nvcv::DataType{output_reqs.dtype}, output_buffer};
-  nvcv::Tensor output_tensor{nvcv::TensorWrapData(output_data)};
-
-  // Convert from uint8_t -> float32 and then normalize
-  convert_op_(stream_, input_tensor, output_tensor, 1.0f, 0.0f);
-  norm_op_(
-    stream_, output_tensor, mean_, stddev_, output_tensor, 1.0f, 0.0f, 0.0f,
-    CVCUDA_NORMALIZE_SCALE_IS_STDDEV);
-
-  CheckCudaErrors(cudaStreamSynchronize(stream_), __FILE__, __LINE__);
-
-  std_msgs::msg::Header header;
-  header.frame_id = img_msg.GetFrameId();
-  header.stamp.sec = img_msg.GetTimestampSeconds();
-  header.stamp.nanosec = img_msg.GetTimestampNanoseconds();
-
-  nvidia::isaac_ros::nitros::NitrosImage normalized_image =
-    nvidia::isaac_ros::nitros::NitrosImageBuilder()
-    .WithHeader(header)
-    .WithDimensions(img_height, img_width)
-    .WithEncoding(format.image_encoding_float)
-    .WithGpuData(raw_output_buffer)
-    .Build();
-
-  nitros_img_pub_->publish(normalized_image);
+  image_pub_->publish(std::move(output_msg));
 }
 
-ImageNormalizeNode::~ImageNormalizeNode()
-{
-  CheckCudaErrors(cudaStreamDestroy(stream_), __FILE__, __LINE__);
-}
+ImageNormalizeNode::~ImageNormalizeNode() {}
 
 }  // namespace image_proc
 }  // namespace isaac_ros

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,15 +22,11 @@
 #include <string>
 #include <vector>
 
-#include "rclcpp/rclcpp.hpp"
-#include "isaac_ros_common/qos.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image_view.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
-#include "nvcv/Tensor.hpp"
 #include "cvcuda/OpCopyMakeBorder.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_nitros_image_type/nitros_image.hpp"
+#include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
 #include "nvcv/BorderType.h"
 
 namespace nvidia
@@ -52,40 +48,44 @@ enum class PaddingType
 class PadNode : public rclcpp::Node
 {
 public:
-  explicit PadNode(
-    const rclcpp::NodeOptions options = rclcpp::NodeOptions());
+  explicit PadNode(const rclcpp::NodeOptions & options);
 
   ~PadNode();
+  PadNode(const PadNode &) = delete;
+  PadNode & operator=(const PadNode &) = delete;
 
 private:
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosImageView & msg);
+  void imageSubCallback(const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr msg);
 
   // QoS settings
   rclcpp::QoS input_qos_;
   rclcpp::QoS output_qos_;
 
   // Subscription to input NitrosImage messages
-  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-      nvidia::isaac_ros::nitros::NitrosImageView>> nitros_sub_;
+  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosImage>::SharedPtr image_sub_;
 
   // Publisher for output NitrosImage messages
-  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
-      nvidia::isaac_ros::nitros::NitrosImage>> nitros_pub_;
+  rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosImage>::SharedPtr image_pub_;
 
-  const uint16_t output_image_width_{};
-  const uint16_t output_image_height_{};
-  const std::string padding_type_{};
-  const std::string border_type_{};
+  // Pad node parameters
+  const uint16_t output_image_width_;
+  const uint16_t output_image_height_;
+  const std::string padding_type_;
+  const std::string border_type_;
   // Param to store the channel values for each pixel for border.
   // Needed for CENTER CONSTANT padding
-  const std::vector<double> border_pixel_color_value_{};
-
-  cvcuda::CopyMakeBorder make_border_op_;
+  const std::vector<double> border_pixel_color_value_;
+  const int64_t memory_pool_block_size_;
+  const int64_t memory_pool_num_blocks_;
 
   PaddingType padding_type_val_;
   NVCVBorderType border_type_val_;
   std::vector<float> border_values_float_;
-  cudaStream_t stream_;
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+  nvidia::isaac_ros::nitros::CUDAMemoryPool pool_;
+
+  // Pad node CVCUDA operation
+  cvcuda::CopyMakeBorder make_border_op_;
 };
 
 }  // namespace image_proc

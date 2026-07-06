@@ -40,22 +40,38 @@ if(USE_NVTX)
 endif()
 
 # PointCloudXyzNode
-ament_auto_add_library(point_cloud_xyz_node SHARED src/point_cloud_xyz_node.cpp)
+ament_auto_add_library(point_cloud_xyz_node SHARED
+  src/point_cloud_xyz_node.cpp
+  src/depth_to_point_cloud_cuda.cu.cpp)
 rclcpp_components_register_nodes(point_cloud_xyz_node "nvidia::isaac_ros::depth_image_proc::PointCloudXyzNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::depth_image_proc::PointCloudXyzNode;$<TARGET_FILE:point_cloud_xyz_node>\n")
 set_target_properties(point_cloud_xyz_node PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
   BUILD_RPATH_USE_ORIGIN TRUE
   INSTALL_RPATH_USE_LINK_PATH TRUE)
+# Mark as CUDA files with non-standard extensions
+set_source_files_properties(
+  src/depth_to_point_cloud_cuda.cu.cpp
+  include/isaac_ros_depth_image_proc/depth_to_point_cloud_cuda.cu.hpp
+  PROPERTIES LANGUAGE CUDA
+)
 
 # PointCloudXyzrgbNode
-ament_auto_add_library(point_cloud_xyzrgb_node SHARED src/point_cloud_xyzrgb_node.cpp)
+ament_auto_add_library(point_cloud_xyzrgb_node SHARED
+  src/point_cloud_xyzrgb_node.cpp
+  src/depth_to_point_cloud_cuda.cu.cpp)
 rclcpp_components_register_nodes(point_cloud_xyzrgb_node "nvidia::isaac_ros::depth_image_proc::PointCloudXyzrgbNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::depth_image_proc::PointCloudXyzrgbNode;$<TARGET_FILE:point_cloud_xyzrgb_node>\n")
 set_target_properties(point_cloud_xyzrgb_node PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
   BUILD_RPATH_USE_ORIGIN TRUE
   INSTALL_RPATH_USE_LINK_PATH TRUE)
+# Mark as CUDA files with non-standard extensions
+set_source_files_properties(
+  src/depth_to_point_cloud_cuda.cu.cpp
+  include/isaac_ros_depth_image_proc/depth_to_point_cloud_cuda.cu.hpp
+  PROPERTIES LANGUAGE CUDA
+)
 
 # convert_metric_node
 ament_auto_add_library(convert_metric_node SHARED src/convert_metric_node.cpp)

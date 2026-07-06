@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +22,8 @@
 #include <memory>
 
 #include "cvcuda/OpConvertTo.hpp"
-#include "isaac_ros_common/qos.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image_view.hpp"
-#include "nvcv/Tensor.hpp"
+#include "isaac_ros_nitros_image_type/nitros_image.hpp"
+#include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include "cuda_runtime.h" // NOLINT
@@ -45,23 +42,23 @@ public:
   ~ConvertMetricNode();
 
 private:
-  void DepthCallback(const ::nvidia::isaac_ros::nitros::NitrosImageView & img_msg);
+  void DepthCallback(const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr msg);
 
-  rclcpp::QoS input_qos_;
-  rclcpp::QoS output_qos_;
+  // ROS Node parameters
+  const int64_t memory_pool_block_size_;
+  const int64_t memory_pool_num_blocks_;
+  const uint16_t input_queue_size_;
+  const uint16_t output_queue_size_;
 
-  std::shared_ptr<::nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-      ::nvidia::isaac_ros::nitros::NitrosImageView>>
-  nitros_img_sub_;
+  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosImage>::SharedPtr image_sub_;
+  rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosImage>::SharedPtr image_pub_;
 
-  std::shared_ptr<::nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
-      ::nvidia::isaac_ros::nitros::NitrosImage>>
-  nitros_img_pub_;
+  // CUDA resources
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+  nvidia::isaac_ros::nitros::CUDAMemoryPool pool_;
 
+  // CVCUDA operation
   cvcuda::ConvertTo convert_op_;
-
-  // CUDA stream to process dynamics detection on
-  cudaStream_t cuda_stream_;
 };
 
 }  // namespace depth_image_proc

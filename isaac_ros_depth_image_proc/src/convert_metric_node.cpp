@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 
 #include "isaac_ros_nitros_image_type/nitros_image_builder.hpp"
 #include "sensor_msgs/image_encodings.hpp"
-
+#include "isaac_ros_cvcuda_utils/cvcuda_utilities.hpp"
+#include "isaac_ros_cvcuda_utils/cvcuda_handle.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
 
 namespace nvidia
@@ -33,137 +34,97 @@ namespace depth_image_proc
 
 namespace
 {
-
-inline void CheckCudaErrors(cudaError_t code, const char * file, const int line)
-{
-  if (code != cudaSuccess) {
-    const std::string message = "CUDA error returned at " + std::string(file) + ":" +
-      std::to_string(line) + ", Error code: " + std::to_string(code) +
-      " (" + std::string(cudaGetErrorString(code)) + ")";
-    throw std::runtime_error(message);
-  }
-}
-
-constexpr size_t kBatchSize{1};
 constexpr float kMillimetresToMetres = 0.001f;
 constexpr float kConvertOpBeta = 0.0f;
-
 }  // namespace
 
 ConvertMetricNode::ConvertMetricNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("convert_metric_node", options),
-  input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
-  output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
-  nitros_img_sub_{std::make_shared<::nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        ::nvidia::isaac_ros::nitros::NitrosImageView>>(
-      this, "image_raw", ::nvidia::isaac_ros::nitros::nitros_image_mono16_t::supported_type_name,
-      std::bind(&ConvertMetricNode::DepthCallback, this,
-      std::placeholders::_1), nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
-      input_qos_)},
-  nitros_img_pub_{std::make_shared<
-      nvidia::isaac_ros::nitros::ManagedNitrosPublisher<nvidia::isaac_ros::nitros::NitrosImage>>(
-      this, "image",
-      nvidia::isaac_ros::nitros::nitros_image_32FC1_t::supported_type_name,
-      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_)}
+  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
+  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
+  input_queue_size_(declare_parameter<uint16_t>("input_queue_size", 10)),
+  output_queue_size_(declare_parameter<uint16_t>("output_queue_size", 10))
 {
-  CHECK_CUDA_ERROR(
-    ::nvidia::isaac_ros::common::initNamedCudaStream(
-      cuda_stream_, "isaac_ros_convert_metric_node"),
-    "Error initializing CUDA stream");
+  // Create CUDA stream
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("ConvertMetricNode");
+
+  // Create CUDA memory pool
+  CHECK_CUDA_ERROR(pool_.create(
+    static_cast<size_t>(memory_pool_block_size_),
+    static_cast<size_t>(memory_pool_num_blocks_),
+    nvidia::isaac_ros::nitros::CUDAMemoryPool::MemoryType::Device),
+    "Failed to create CUDA memory pool");
+
+  const rclcpp::QoS input_qos = rclcpp::QoS(input_queue_size_).keep_last(input_queue_size_);
+  const rclcpp::QoS output_qos = rclcpp::QoS(output_queue_size_).keep_last(output_queue_size_);
+
+  // Create subscribers and publishers
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  image_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosImage>(
+    "image_raw", input_qos,
+    std::bind(&ConvertMetricNode::DepthCallback,
+      this, std::placeholders::_1), sub_options);
+  image_pub_ = create_publisher<nvidia::isaac_ros::nitros::NitrosImage>(
+    "image", output_qos, pub_options);
 }
 
 void ConvertMetricNode::DepthCallback(
-  const ::nvidia::isaac_ros::nitros::NitrosImageView & img_msg)
+  const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr msg)
 {
-  if (img_msg.GetEncoding() != sensor_msgs::image_encodings::MONO16) {
+  if (msg->encoding != sensor_msgs::image_encodings::MONO16 &&
+    msg->encoding != sensor_msgs::image_encodings::TYPE_16UC1)
+  {
     RCLCPP_ERROR(
       get_logger(),
-      "Input image format is not MONO16 image. This node only supports MONO16 image."
-      "The current image input is %s", img_msg.GetEncoding().c_str());
+      "Input image format is not MONO16 or TYPE_16UC1 image."
+      "This node only supports MONO16 or TYPE_16UC1 image."
+      "The current image input is %s", msg->encoding.c_str());
     return;
   }
 
-  const uint32_t img_width{img_msg.GetWidth()};
-  const uint32_t img_height{img_msg.GetHeight()};
-  const int img_channels{sensor_msgs::image_encodings::numChannels(img_msg.GetEncoding())};
+  const uint32_t img_width{msg->width};
+  const uint32_t img_height{msg->height};
+  const int img_channels{sensor_msgs::image_encodings::numChannels(msg->encoding)};
+  const int bytes_per_channel{sensor_msgs::image_encodings::bitDepth(msg->encoding) / CHAR_BIT};
+  const cvcuda_utils::NVCVImageFormat input_format = cvcuda_utils::ToNVCVFormat(msg->encoding);
 
-  nvcv::TensorDataStridedCuda::Buffer input_buffer;
-  input_buffer.strides[3] =
-    sensor_msgs::image_encodings::bitDepth(img_msg.GetEncoding()) / CHAR_BIT;
-  input_buffer.strides[2] = img_channels * input_buffer.strides[3];
-  input_buffer.strides[1] = img_msg.GetStride();
-  input_buffer.strides[0] = img_msg.GetHeight() * input_buffer.strides[1];
+  // Create input buffer handle
+  auto input_handle = cvcuda_utils::WrapCVCUDATensor(
+    *msg, msg->get_read_handle(*cuda_stream_), input_format.format, img_channels,
+    bytes_per_channel);
 
-  input_buffer.basePtr =
-    const_cast<NVCVByte *>(reinterpret_cast<const NVCVByte *>(img_msg.GetGpuData()));
+  // Allocate output image from pool (32FC1: 1 channel, 4 bytes per channel)
+  const uint32_t output_step = img_width * sizeof(float);
+  auto output_msg = std::make_unique<nvidia::isaac_ros::nitros::NitrosImage>();
+  auto output_write_handle = output_msg->from_pool(
+    pool_, img_width, img_height, output_step,
+    sensor_msgs::image_encodings::TYPE_32FC1, *cuda_stream_);
 
-  nvcv::Tensor::Requirements input_reqs{nvcv::Tensor::CalcRequirements(
-      kBatchSize, {static_cast<int32_t>(img_msg.GetWidth()),
-        static_cast<int32_t>(img_msg.GetHeight())}, nvcv::FMT_U16)};
-
-  nvcv::TensorDataStridedCuda input_data{
-    nvcv::TensorShape{input_reqs.shape, input_reqs.rank, input_reqs.layout},
-    nvcv::DataType{input_reqs.dtype}, input_buffer};
-
-  nvcv::Tensor input_tensor{nvcv::TensorWrapData(input_data)};
-
-  // Allocate the memory buffer ourselves rather than letting CV-CUDA allocate it
-  float * raw_output_buffer{nullptr};
-  const size_t output_buffer_size{img_width * img_height * img_channels * sizeof(float)};
-  CHECK_CUDA_ERROR(
-    cudaMallocAsync(&raw_output_buffer, output_buffer_size, cuda_stream_),
-    "Error allocating memory for output buffer in ConvertMetricNode::DepthCallback");
-
-  nvcv::TensorDataStridedCuda::Buffer output_buffer;
-  output_buffer.strides[3] = sizeof(float);
-  output_buffer.strides[2] = img_channels * output_buffer.strides[3];
-  output_buffer.strides[1] = img_msg.GetWidth() * output_buffer.strides[2];
-  output_buffer.strides[0] = img_msg.GetHeight() * output_buffer.strides[1];
-
-  output_buffer.basePtr = reinterpret_cast<NVCVByte *>(raw_output_buffer);
-
-  nvcv::Tensor::Requirements output_reqs{nvcv::Tensor::CalcRequirements(
-      kBatchSize,
-      {static_cast<int32_t>(img_msg.GetWidth()),
-        static_cast<int32_t>(img_msg.GetHeight())}, nvcv::FMT_F32)};
-
-  nvcv::TensorDataStridedCuda output_data{
-    nvcv::TensorShape{output_reqs.shape, output_reqs.rank, output_reqs.layout},
-    nvcv::DataType{output_reqs.dtype}, output_buffer};
-  nvcv::Tensor output_tensor{nvcv::TensorWrapData(output_data)};
+  // Create output buffer handle
+  auto output_handle = cvcuda_utils::WrapCVCUDATensor(
+    *output_msg, std::move(output_write_handle), nvcv::FMT_F32, img_channels,
+    static_cast<int>(sizeof(float)));
 
   // Convert from uint16_t -> float32.
   // And divide by 1000 to convert from millimeters -> meters
   convert_op_(
-    cuda_stream_, input_tensor, output_tensor,
+    *cuda_stream_, input_handle.get_tensor(), output_handle.get_tensor(),
     kMillimetresToMetres, kConvertOpBeta);
 
-  CHECK_CUDA_ERROR(
-    cudaStreamSynchronize(cuda_stream_),
-    "Error synchronizing CUDA stream in ConvertMetricNode::DepthCallback");
+  // Copy header from input
+  output_msg->timestamp_sec = msg->get_timestamp_sec();
+  output_msg->timestamp_nsec = msg->get_timestamp_nsec();
+  output_msg->frame_id = msg->get_frame_id();
 
-  std_msgs::msg::Header header;
-  header.frame_id = img_msg.GetFrameId();
-  header.stamp.sec = img_msg.GetTimestampSeconds();
-  header.stamp.nanosec = img_msg.GetTimestampNanoseconds();
-
-  nvidia::isaac_ros::nitros::NitrosImage float_depth_image =
-    nvidia::isaac_ros::nitros::NitrosImageBuilder()
-    .WithHeader(header)
-    .WithDimensions(img_height, img_width)
-    .WithEncoding(sensor_msgs::image_encodings::TYPE_32FC1)
-    .WithGpuData(raw_output_buffer)
-    .Build();
-
-  nitros_img_pub_->publish(float_depth_image);
+  // Publish the output image
+  image_pub_->publish(std::move(output_msg));
 }
 
-ConvertMetricNode::~ConvertMetricNode()
-{
-  CHECK_CUDA_ERROR(
-    cudaStreamDestroy(cuda_stream_),
-    "Error destroying CUDA stream in ConvertMetricNode::~ConvertMetricNode");
-}
+ConvertMetricNode::~ConvertMetricNode() {}
 
 }  // namespace depth_image_proc
 }  // namespace isaac_ros

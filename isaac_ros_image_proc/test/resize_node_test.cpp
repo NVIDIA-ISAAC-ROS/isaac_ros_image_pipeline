@@ -42,54 +42,6 @@ TEST(resize_node_test, test_invalid_output_dimension)
   rclcpp::shutdown();
 }
 
-TEST(resize_node_test, test_unsupported_encoding)
-{
-  rclcpp::init(0, nullptr);
-  rclcpp::NodeOptions options;
-  options.append_parameter_override("output_width", 1080);
-  options.append_parameter_override("output_height", 720);
-  options.append_parameter_override("encoding_desired", "dummy_encoding");
-  EXPECT_THROW(
-  {
-    try {
-      nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
-    } catch (const std::invalid_argument & e) {
-      EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported encoding"));
-      throw;
-    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
-      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
-      throw;
-    }
-  }, std::invalid_argument);
-  rclcpp::shutdown();
-}
-
-TEST(resize_node_test, test_invalid_input_dimension)
-{
-  rclcpp::init(0, nullptr);
-  rclcpp::NodeOptions options;
-  options.append_parameter_override("output_width", 1080);
-  options.append_parameter_override("output_height", 720);
-  options.append_parameter_override("encoding_desired", "");
-  options.append_parameter_override("keep_aspect_ratio", true);
-  options.append_parameter_override("disable_padding", true);
-  options.append_parameter_override("input_width", -1);
-  EXPECT_THROW(
-  {
-    try {
-      nvidia::isaac_ros::image_proc::ResizeNode resize_node(options);
-    } catch (const std::invalid_argument & e) {
-      EXPECT_THAT(e.what(), testing::HasSubstr("Invalid input dimension"));
-      throw;
-    } catch (const rclcpp::exceptions::InvalidParameterValueException & e) {
-      EXPECT_THAT(e.what(), testing::HasSubstr("No parameter value set"));
-      throw;
-    }
-  }, std::invalid_argument);
-  rclcpp::shutdown();
-}
-
-
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);

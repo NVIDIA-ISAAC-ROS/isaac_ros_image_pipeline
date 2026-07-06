@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,15 +24,12 @@
 
 #include <memory>
 
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_image_proc/alpha_blend.cu.hpp"
-
-#include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/image.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_message_filters_subscriber.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
+#include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
+#include "isaac_ros_nitros/types/nitros_type_message_filter_traits.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image_view.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace nvidia
 {
@@ -44,38 +41,36 @@ namespace image_proc
 class AlphaBlendNode : public rclcpp::Node
 {
 public:
-  explicit AlphaBlendNode(const rclcpp::NodeOptions options = rclcpp::NodeOptions());
+  explicit AlphaBlendNode(const rclcpp::NodeOptions & options);
 
   ~AlphaBlendNode();
 
 private:
-  cudaStream_t stream_;
-  double alpha_;
-  int mask_queue_size_;
-  int image_queue_size_;
-  int sync_queue_size_;
-
-  // Subscribers for input images
-  nvidia::isaac_ros::nitros::message_filters::Subscriber<nvidia::isaac_ros::nitros::NitrosImageView>
-  mask_sub_;
-  nvidia::isaac_ros::nitros::message_filters::Subscriber<nvidia::isaac_ros::nitros::NitrosImageView>
-  image_sub_;
-
-  // Publisher for output image
-  std::shared_ptr<
-    nvidia::isaac_ros::nitros::ManagedNitrosPublisher<nvidia::isaac_ros::nitros::NitrosImage>>
-  image_pub_;
-
-  // Exact message sync policy
-  using ExactPolicyMode = ::message_filters::sync_policies::ExactTime<
-    nvidia::isaac_ros::nitros::NitrosImage, nvidia::isaac_ros::nitros::NitrosImage>;
-  using ExactSyncMode = ::message_filters::Synchronizer<ExactPolicyMode>;
-  std::shared_ptr<ExactSyncMode> sync_mode_;
-
   // Callback function
   void InputCallback(
-    const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr & mask_ptr,
-    const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr & img_ptr);
+    const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr & img_ptr,
+    const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr & mask_ptr);
+
+  // Alpha blend node parameters
+  double alpha_;
+  int memory_pool_block_size_;
+  int memory_pool_num_blocks_;
+  int64_t input_queue_size_;
+  int64_t output_queue_size_;
+
+  // Subscribers and publishers
+  message_filters::Subscriber<nvidia::isaac_ros::nitros::NitrosImage> image_sub_;
+  message_filters::Subscriber<nvidia::isaac_ros::nitros::NitrosImage> mask_sub_;
+  rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosImage>::SharedPtr image_pub_;
+
+  // Exact message sync policy
+  using ExactPolicy = ::message_filters::sync_policies::ExactTime<
+    nvidia::isaac_ros::nitros::NitrosImage, nvidia::isaac_ros::nitros::NitrosImage>;
+  message_filters::Synchronizer<ExactPolicy> sync_;
+
+  // Resources
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+  nvidia::isaac_ros::nitros::CUDAMemoryPool pool_;
 };
 
 }  // namespace image_proc

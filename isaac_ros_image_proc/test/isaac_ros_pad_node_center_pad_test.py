@@ -76,7 +76,7 @@ class IsaacROSImageProcPadNodeTest(IsaacROSBaseTest):
         Test that the PadNode is correctly padding the image based on
         the given padding type.
         """
-        TIMEOUT = 300
+        TIMEOUT = 60
         received_messages = {}
         RED_EXPECTED_VAL = 1
         GREEN_EXPECTED_VAL = 2

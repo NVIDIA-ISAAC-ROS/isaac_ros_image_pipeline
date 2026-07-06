@@ -37,6 +37,51 @@ DIMENSION_HEIGHT = 100
 
 @pytest.mark.rostest
 def generate_test_description():
+    resize_node = ComposableNode(
+        name='resize_node',
+        package='isaac_ros_image_proc',
+        plugin='nvidia::isaac_ros::image_proc::ResizeNode',
+        namespace=IsaacROSNormalizeNodeTest.generate_namespace(),
+        parameters=[{
+            'output_width': DIMENSION_WIDTH,
+            'output_height': DIMENSION_HEIGHT,
+        }],
+        remappings=[
+            ('resize/image', 'image_resized'),
+            ('resize/camera_info', 'camera_info_resized'),
+        ]
+    )
+
+    rectify_node = ComposableNode(
+        name='rectify_node',
+        package='isaac_ros_image_proc',
+        plugin='nvidia::isaac_ros::image_proc::RectifyNode',
+        namespace=IsaacROSNormalizeNodeTest.generate_namespace(),
+        parameters=[{
+            'output_width': DIMENSION_WIDTH,
+            'output_height': DIMENSION_HEIGHT,
+        }],
+        remappings=[
+            ('image_raw', 'image_resized'),
+            ('camera_info', 'camera_info_resized'),
+            ('image_rect', 'image_rectified'),
+        ]
+    )
+
+    flip_node = ComposableNode(
+        name='flip_node',
+        package='isaac_ros_image_proc',
+        plugin='nvidia::isaac_ros::image_proc::ImageFlipNode',
+        namespace=IsaacROSNormalizeNodeTest.generate_namespace(),
+        parameters=[{
+            'flip_mode': 'HORIZONTAL',
+        }],
+        remappings=[
+            ('image', 'image_rectified'),
+            ('image_flipped', 'image_flipped'),
+        ]
+    )
+
     normalize_node = ComposableNode(
         name='image_normalize_node',
         package='isaac_ros_image_proc',
@@ -53,7 +98,7 @@ def generate_test_description():
             name='normalize_container',
             package='rclcpp_components',
             executable='component_container_mt',
-            composable_node_descriptions=[normalize_node],
+            composable_node_descriptions=[resize_node, rectify_node, flip_node, normalize_node],
             namespace=IsaacROSNormalizeNodeTest.generate_namespace(),
             output='screen',
             arguments=['--ros-args', '--log-level', 'info',
@@ -80,7 +125,7 @@ class IsaacROSNormalizeNodeTest(IsaacROSBaseTest):
         This test verifies that each channel's values should be the calculated values
         above.
         """
-        TIMEOUT = 300
+        TIMEOUT = 60
         received_messages = {}
         RED_EXPECTED_VAL = 2.0
         GREEN_EXPECTED_VAL = 0.5

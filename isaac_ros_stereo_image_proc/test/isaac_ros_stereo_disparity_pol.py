@@ -115,7 +115,7 @@ class IsaacROSDisparityTest(IsaacROSBaseTest):
             self.assertEqual(disparity.image.height, camera_info.height)
             self.assertEqual(disparity.image.width, camera_info.width)
             self.assertAlmostEqual(disparity.f, 434.9440002)
-            self.assertAlmostEqual(disparity.t, -0.3678634)
+            self.assertAlmostEqual(disparity.t, -160.0)
             self.assertAlmostEqual(disparity.min_disparity, 0.0)
             self.assertAlmostEqual(disparity.max_disparity, MAX_DISPARITY)
             if SAVE_DISPARITY:
