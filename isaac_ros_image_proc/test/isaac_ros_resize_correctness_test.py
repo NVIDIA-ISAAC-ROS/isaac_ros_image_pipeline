@@ -140,7 +140,7 @@ class IsaacROSResizeTest(IsaacROSBaseTest):
 
                 while not _messages_synced(received_messages, latest_pub_timestamp):
                     if time.time() - sync_time > wait_timeout:
-                        self.fail(f'Timeout waiting for resized image'
+                        self.fail(f'Timeout waiting for resized image '
                                   f'on timestamp {latest_pub_timestamp}')
                     rclpy.spin_once(self.node, timeout_sec=0.01)
 

@@ -104,7 +104,7 @@ class IsaacROSFormatNV24Test(IsaacROSBaseTest):
             image_raw.encoding = 'bgr8'  # Set image encoding explicitly
 
             # Wait at most TIMEOUT seconds for subscriber to respond
-            TIMEOUT = 2
+            TIMEOUT = 30
             end_time = time.time() + TIMEOUT
 
             done = False

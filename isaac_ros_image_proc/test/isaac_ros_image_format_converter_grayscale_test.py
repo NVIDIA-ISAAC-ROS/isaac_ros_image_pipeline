@@ -61,7 +61,7 @@ def generate_test_description():
 
 
 class IsaacROSFormatMono8Test(IsaacROSBaseTest):
-    """Vaidate format conversion to the mono8 format."""
+    """Validate format conversion to the mono8 format."""
 
     def test_rgb_to_mono_conversion(self) -> None:
         """Expect the node to convert rgb8 input images into the mono8 format."""
@@ -79,13 +79,13 @@ class IsaacROSFormatMono8Test(IsaacROSBaseTest):
         try:
             # Generate an input image in RGB encoding
             cv_image = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
-            cv_image[:] = (255, 0, 0)  # Full red, partial opacity
+            cv_image[:] = (255, 0, 0)  # Full red in RGB
 
             image_raw = CvBridge().cv2_to_imgmsg(cv_image)
             image_raw.encoding = 'rgb8'  # Set image encoding explicitly
 
             # Wait at most TIMEOUT seconds for subscriber to respond
-            TIMEOUT = 2
+            TIMEOUT = 30
             end_time = time.time() + TIMEOUT
 
             done = False

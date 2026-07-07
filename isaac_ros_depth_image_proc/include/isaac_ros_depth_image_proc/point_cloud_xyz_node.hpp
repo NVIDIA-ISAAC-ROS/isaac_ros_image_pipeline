@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,16 @@
 #include <utility>
 #include <vector>
 
+#include "message_filters/subscriber.h"
+#include "message_filters/synchronizer.h"
+#include "message_filters/sync_policies/exact_time.h"
+
+#include "isaac_ros_common/qos.hpp"
+#include "isaac_ros_depth_image_proc/depth_to_point_cloud_cuda.cu.hpp"
+#include "isaac_ros_nitros/types/nitros_type_message_filter_traits.hpp"
+#include "isaac_ros_nitros_image_type/nitros_image.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "isaac_ros_nitros/nitros_node.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 
 using StringList = std::vector<std::string>;
 
@@ -35,10 +43,10 @@ namespace isaac_ros
 namespace depth_image_proc
 {
 
-class PointCloudXyzNode : public nitros::NitrosNode
+class PointCloudXyzNode : public rclcpp::Node
 {
 public:
-  explicit PointCloudXyzNode(const rclcpp::NodeOptions &);
+  explicit PointCloudXyzNode(const rclcpp::NodeOptions & options);
 
   ~PointCloudXyzNode();
 
@@ -46,14 +54,49 @@ public:
 
   PointCloudXyzNode & operator=(const PointCloudXyzNode &) = delete;
 
-  // The callback to be implemented by users for any required initialization
-  void postLoadGraphCallback() override;
-
 private:
+  // Callback
+  void OnSynchronizedInputs(
+    const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr & depth_msg,
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info_msg);
+
+  // Create PointCloudProperties
+  PointCloudProperties CreatePointCloudProperties(
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr & depth_info_msg,
+    const int skip);
+
+  // Create DepthProperties
+  DepthProperties CreateDepthProperties(
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr & depth_info_msg);
+
   // PointCloudXyzNode node parameters
-  int skip_;  // Paramter to limit the number of pixels converted to points
+  int skip_;  // Parameter to limit the number of pixels converted to points
   uint16_t output_height_;
   uint16_t output_width_;
+  int64_t memory_pool_block_size_;
+  int64_t memory_pool_num_blocks_;
+  int32_t input_qos_size_;
+  int32_t output_qos_size_;
+
+  // Subscribers
+  message_filters::Subscriber<nvidia::isaac_ros::nitros::NitrosImage> depth_sub_;
+  message_filters::Subscriber<sensor_msgs::msg::CameraInfo> camera_info_sub_;
+
+  // Publisher
+  rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosPointCloud>::SharedPtr point_cloud_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
+
+  using ExactSyncPolicy = message_filters::sync_policies::ExactTime<
+    nvidia::isaac_ros::nitros::NitrosImage,
+    sensor_msgs::msg::CameraInfo
+  >;
+  message_filters::Synchronizer<ExactSyncPolicy> exact_sync_;
+
+  // CUDA Resources
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+  nvidia::isaac_ros::nitros::CUDAMemoryPool pool_;
+
+  depth_image_proc::DepthToPointCloudCUDA cloud_compute_;
 };
 
 }  // namespace depth_image_proc

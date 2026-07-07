@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,66 +59,74 @@ bool LookupTransformMatrix(
 
 AlignDepthToColorNode::AlignDepthToColorNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("align_depth_to_color_node", options),
-  sync_queue_size_(declare_parameter<int>("sync_queue_size", 10)),
-  input_qos_{::isaac_ros::common::AddQosParameter(
-      *this, kDefaultQoS, "input_qos")},
-  output_qos_{::isaac_ros::common::AddQosParameter(
-      *this, kDefaultQoS, "output_qos")},
-  depth_sub_{std::make_shared<Nitros::ManagedNitrosSubscriber<Nitros::NitrosImageView>>(
-      this,
-      "depth_image",
-      Nitros::nitros_image_32FC1_t::supported_type_name,
-      std::bind(&AlignDepthToColorNode::DepthCallback, this, std::placeholders::_1),
-      Nitros::NitrosDiagnosticsConfig{}, input_qos_)},
-  depth_info_sub_{std::make_shared<Nitros::ManagedNitrosSubscriber<Nitros::NitrosCameraInfoView>>(
-      this, "camera_info_depth", Nitros::nitros_camera_info_t::supported_type_name,
-      std::bind(&AlignDepthToColorNode::DepthCameraInfoCallback, this, std::placeholders::_1),
-      Nitros::NitrosDiagnosticsConfig{}, input_qos_)},
-  color_info_sub_{std::make_shared<Nitros::ManagedNitrosSubscriber<Nitros::NitrosCameraInfoView>>(
-      this, "camera_info_color", Nitros::nitros_camera_info_t::supported_type_name,
-      std::bind(&AlignDepthToColorNode::ColorCameraInfoCallback, this, std::placeholders::_1),
-      Nitros::NitrosDiagnosticsConfig{}, input_qos_)},
+  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
+  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
+  input_qos_size_(declare_parameter<uint16_t>("input_qos_size", 10)),
+  output_qos_size_(declare_parameter<uint16_t>("output_qos_size", 10)),
   use_cached_camera_info_(declare_parameter<bool>("use_cached_camera_info", false)),
-  enable_performance_logging_(declare_parameter<bool>("enable_performance_logging", false))
+  enable_performance_logging_(declare_parameter<bool>("enable_performance_logging", false)),
+  depth_sub_{},
+  depth_info_sub_{},
+  color_info_sub_{},
+  aligned_depth_pub_{},
+  exact_sync_{ExactPolicy(static_cast<int>(input_qos_size_)), depth_sub_, depth_info_sub_,
+    color_info_sub_}
 {
-  CHECK_CUDA_ERROR(
-    ::nvidia::isaac_ros::common::initNamedCudaStream(
-      cuda_stream_, "isaac_ros_align_depth_to_color_node"),
-    "Error initializing CUDA stream");
+  // create CUDA stream
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("AlignDepthToColorNode");
+
+  // create CUDA memory pool
+  CHECK_CUDA_ERROR(pool_.create(
+    static_cast<size_t>(memory_pool_block_size_),
+    static_cast<size_t>(memory_pool_num_blocks_),
+    nvidia::isaac_ros::nitros::CUDAMemoryPool::MemoryType::Device),
+    "Failed to create CUDA memory pool");
+
+  const rclcpp::QoS input_qos = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos").keep_last(input_qos_size_);
+  const rclcpp::QoS output_qos = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos").keep_last(output_qos_size_);
+  const rmw_qos_profile_t rmw_qos_profile = input_qos.get_rmw_qos_profile();
+
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  depth_sub_.subscribe(this, "depth_image", rmw_qos_profile, sub_options);
+  depth_info_sub_.subscribe(this, "camera_info_depth", rmw_qos_profile, sub_options);
+  color_info_sub_.subscribe(this, "camera_info_color", rmw_qos_profile, sub_options);
+  depth_sub_.registerCallback(
+    std::bind(&AlignDepthToColorNode::DepthCallback, this, std::placeholders::_1));
+  depth_info_sub_.registerCallback(
+    std::bind(&AlignDepthToColorNode::DepthCameraInfoCallback, this, std::placeholders::_1));
+  color_info_sub_.registerCallback(
+    std::bind(&AlignDepthToColorNode::ColorCameraInfoCallback, this, std::placeholders::_1));
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // Subscribers (synchronized path only when not using the cached camera info)
   if (!use_cached_camera_info_) {
-    depth_sync_sub_.subscribe(this, "depth_image", input_qos_.get_rmw_qos_profile());
-    depth_info_sync_sub_.subscribe(this, "camera_info_depth", input_qos_.get_rmw_qos_profile());
-    color_info_sync_sub_.subscribe(this, "camera_info_color", input_qos_.get_rmw_qos_profile());
-
-    // Sync policy and callback
-    exact_sync_ = std::make_shared<ExactSync>(
-      ExactPolicy(sync_queue_size_), depth_sync_sub_, depth_info_sync_sub_, color_info_sync_sub_);
-    exact_sync_->registerCallback(
+    depth_sync_sub_.subscribe(this, "depth_image", rmw_qos_profile, sub_options);
+    depth_info_sync_sub_.subscribe(this, "camera_info_depth", rmw_qos_profile, sub_options);
+    color_info_sync_sub_.subscribe(this, "camera_info_color", rmw_qos_profile, sub_options);
+    exact_sync_.registerCallback(
       std::bind(
         &AlignDepthToColorNode::OnSynchronizedInputs, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   }
 
   // Publisher
-  aligned_depth_pub_ = std::make_shared<
-    Nitros::ManagedNitrosPublisher<Nitros::NitrosImage>>(
-    this, "aligned_depth",
-    Nitros::nitros_image_32FC1_t::supported_type_name,
-    Nitros::NitrosDiagnosticsConfig{}, output_qos_);
+  aligned_depth_pub_ = create_publisher<nvidia::isaac_ros::nitros::NitrosImage>(
+    "aligned_depth", output_qos, pub_options);
 }
 
-AlignDepthToColorNode::~AlignDepthToColorNode()
-{
-  CHECK_CUDA_ERROR(cudaStreamDestroy(cuda_stream_), "Error destroying CUDA stream");
-}
+AlignDepthToColorNode::~AlignDepthToColorNode() {}
 
 void AlignDepthToColorNode::ComputeAndPublishAlignedDepth(
-  const Nitros::NitrosImageView & depth_view,
+  const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr msg,
   const sensor_msgs::msg::CameraInfo & depth_camera_info,
   const sensor_msgs::msg::CameraInfo & color_camera_info)
 {
@@ -126,15 +134,15 @@ void AlignDepthToColorNode::ComputeAndPublishAlignedDepth(
   auto start_time = std::chrono::high_resolution_clock::now();
 
   // Validate encodings
-  if (depth_view.GetEncoding() != sensor_msgs::image_encodings::TYPE_32FC1) {
+  if (msg->encoding != sensor_msgs::image_encodings::TYPE_32FC1) {
     RCLCPP_ERROR(get_logger(), "Depth image must be TYPE_32FC1 (meters)");
     throw std::runtime_error("Invalid depth image encoding");
   }
 
-  const int depth_w = static_cast<int>(depth_view.GetWidth());
-  const int depth_h = static_cast<int>(depth_view.GetHeight());
-  const int color_w = static_cast<int>(color_camera_info.width);
-  const int color_h = static_cast<int>(color_camera_info.height);
+  const auto depth_w = static_cast<int>(msg->width);
+  const auto depth_h = static_cast<int>(msg->height);
+  const auto color_w = static_cast<int>(color_camera_info.width);
+  const auto color_h = static_cast<int>(color_camera_info.height);
   // Make sure the depth and width of depth camera info and nitros image is the same.
   if (depth_w != static_cast<int>(depth_camera_info.width) ||
     depth_h != static_cast<int>(depth_camera_info.height))
@@ -143,8 +151,9 @@ void AlignDepthToColorNode::ComputeAndPublishAlignedDepth(
     throw std::runtime_error("Invalid depth image dimensions");
   }
 
-  // Get GPU depth pointer directly - no host copies!
-  const float * depth_gpu_ptr = reinterpret_cast<const float *>(depth_view.GetGpuData());
+  // Create read_handle
+  auto read_handle = msg->get_read_handle(*cuda_stream_);
+  const auto depth_gpu_ptr = reinterpret_cast<const float *>(read_handle.get_ptr());
 
   // Lookup 4x4 transform depth->color from TF
   const std::string depth_frame = depth_camera_info.header.frame_id;
@@ -160,28 +169,24 @@ void AlignDepthToColorNode::ComputeAndPublishAlignedDepth(
     color_pose_depth_ = color_pose_depth;
   }
 
-  // Allocate GPU memory for aligned depth output
-  const size_t aligned_bytes = static_cast<size_t>(
-    color_camera_info.width) * color_camera_info.height * sizeof(float);
-  float * gpu_aligned = nullptr;
-  CHECK_CUDA_ERROR(
-    cudaMallocAsync(&gpu_aligned, aligned_bytes, cuda_stream_),
-    "Error allocating GPU memory for aligned depth output");
+  // Allocate output image from pool (from_pool sets dimensions and encoding)
+  auto aligned_depth_msg = std::make_unique<Nitros::NitrosImage>();
+  auto write_handle = aligned_depth_msg->from_pool(
+    pool_, color_w, color_h, color_w * sizeof(float),
+    sensor_msgs::image_encodings::TYPE_32FC1, *cuda_stream_);
+  auto gpu_aligned = reinterpret_cast<float *>(write_handle.get_ptr());
+
+  // Copy header from input
+  aligned_depth_msg->timestamp_sec = msg->get_timestamp_sec();
+  aligned_depth_msg->timestamp_nsec = msg->get_timestamp_nsec();
+  aligned_depth_msg->frame_id = msg->get_frame_id();
 
   // Launch optimized GPU-only depth alignment
   float gpu_time_ms = 0.0f;
-  CHECK_CUDA_ERROR(
-    AlignDepthToColor(
-      depth_gpu_ptr,
-      gpu_aligned,
-      depth_camera_info,
-      color_camera_info,
-      color_pose_depth_.value().data(),
-      cuda_stream_,
-      &gpu_time_ms  // Get GPU timing
-    ), "Error aligning depth to color");
-
-  CHECK_CUDA_ERROR(cudaStreamSynchronize(cuda_stream_), "Error synchronizing CUDA stream");
+  CHECK_CUDA_ERROR(AlignDepthToColor(depth_gpu_ptr, gpu_aligned, depth_camera_info,
+      color_camera_info, color_pose_depth_.value().cast<double>().data(), *cuda_stream_,
+      &gpu_time_ms),
+    "Error aligning depth to color");
 
   if (enable_performance_logging_) {
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -194,48 +199,21 @@ void AlignDepthToColorNode::ComputeAndPublishAlignedDepth(
       total_time_ms, gpu_time_ms, depth_w, depth_h, color_w, color_h);
   }
 
-  // Build and publish Nitros image (gpu_aligned stays on GPU)
-  std_msgs::msg::Header out_header;
-  out_header.frame_id = color_camera_info.header.frame_id;
-  out_header.stamp.sec = depth_view.GetTimestampSeconds();
-  out_header.stamp.nanosec = depth_view.GetTimestampNanoseconds();
-
-  Nitros::NitrosImage out_img =
-    Nitros::NitrosImageBuilder()
-    .WithHeader(out_header)
-    .WithDimensions(color_h, color_w)
-    .WithEncoding(sensor_msgs::image_encodings::TYPE_32FC1)
-    .WithGpuData(reinterpret_cast<uint8_t *>(gpu_aligned))
-    .Build();
-
-  aligned_depth_pub_->publish(out_img);
+  // Publish Nitros image (GPU buffer owned by aligned_depth_msg)
+  aligned_depth_pub_->publish(std::move(aligned_depth_msg));
 }
 
 void AlignDepthToColorNode::OnSynchronizedInputs(
   const Nitros::NitrosImage::ConstSharedPtr & depth_msg,
-  const Nitros::NitrosCameraInfo::ConstSharedPtr & depth_info_msg,
-  const Nitros::NitrosCameraInfo::ConstSharedPtr & color_info_msg)
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & depth_info_msg,
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & color_info_msg)
 {
-  // Views
-  const Nitros::NitrosImageView depth_view{*depth_msg};
-
-  // Convert NitrosCameraInfo to ROS CameraInfo for both cameras
-  sensor_msgs::msg::CameraInfo depth_camera_info;
-  sensor_msgs::msg::CameraInfo color_camera_info;
-  try {
-    rclcpp::TypeAdapter<Nitros::NitrosCameraInfo, sensor_msgs::msg::CameraInfo>
-    ::convert_to_ros_message(*depth_info_msg, depth_camera_info);
-    rclcpp::TypeAdapter<Nitros::NitrosCameraInfo, sensor_msgs::msg::CameraInfo>
-    ::convert_to_ros_message(*color_info_msg, color_camera_info);
-  } catch (const std::runtime_error & e) {
-    RCLCPP_ERROR(get_logger(), "Failed to convert NitrosCameraInfo: %s", e.what());
-    return;
-  }
-
-  ComputeAndPublishAlignedDepth(depth_view, depth_camera_info, color_camera_info);
+  ComputeAndPublishAlignedDepth(depth_msg, *depth_info_msg, *color_info_msg);
 }
 
-void AlignDepthToColorNode::DepthCallback(const Nitros::NitrosImageView & msg)
+void AlignDepthToColorNode::DepthCallback(
+  const nvidia::isaac_ros::nitros::NitrosImage::ConstSharedPtr & msg
+)
 {
   if (!use_cached_camera_info_) {
     return;
@@ -245,7 +223,7 @@ void AlignDepthToColorNode::DepthCallback(const Nitros::NitrosImageView & msg)
   if (!depth_camera_info_.has_value() || !color_camera_info_.has_value()) {
     RCLCPP_DEBUG(get_logger(), "Received depth image but don't have depth or color camera info !");
     // Save msg to a buffer so that if camera info comes in, we can compute the aligned depth
-    depth_image_buffer_.emplace(msg);
+    depth_image_buffer_.emplace(*msg);
     return;
   } else {
     ComputeAndPublishAlignedDepth(msg, depth_camera_info_.value(), color_camera_info_.value());
@@ -254,7 +232,7 @@ void AlignDepthToColorNode::DepthCallback(const Nitros::NitrosImageView & msg)
 }
 
 void AlignDepthToColorNode::DepthCameraInfoCallback(
-  const Nitros::NitrosCameraInfoView & msg)
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & msg)
 {
   if (!use_cached_camera_info_) {
     return;
@@ -266,27 +244,18 @@ void AlignDepthToColorNode::DepthCameraInfoCallback(
     return;
   }
 
-  // Convert NitrosCameraInfoView to ROS CameraInfo
-  sensor_msgs::msg::CameraInfo depth_camera_info;
-  try {
-    rclcpp::TypeAdapter<Nitros::NitrosCameraInfo, sensor_msgs::msg::CameraInfo>
-    ::convert_to_ros_message(msg.GetMessage(), depth_camera_info);
-  } catch (const std::runtime_error & e) {
-    RCLCPP_ERROR(get_logger(), "Failed to convert depth NitrosCameraInfo: %s", e.what());
-    return;
-  }
-
-  depth_camera_info_ = depth_camera_info;
+  depth_camera_info_ = *msg;
 
   if (depth_image_buffer_.has_value() && color_camera_info_.has_value()) {
     ComputeAndPublishAlignedDepth(
-      depth_image_buffer_.value(), depth_camera_info_.value(), color_camera_info_.value());
+      std::make_shared<Nitros::NitrosImage>(depth_image_buffer_.value()),
+      depth_camera_info_.value(), color_camera_info_.value());
     depth_image_buffer_.reset();
   }
 }
 
 void AlignDepthToColorNode::ColorCameraInfoCallback(
-  const Nitros::NitrosCameraInfoView & msg)
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & msg)
 {
   if (!use_cached_camera_info_) {
     return;
@@ -298,21 +267,12 @@ void AlignDepthToColorNode::ColorCameraInfoCallback(
     return;
   }
 
-  // Convert NitrosCameraInfoView to ROS CameraInfo
-  sensor_msgs::msg::CameraInfo color_camera_info;
-  try {
-    rclcpp::TypeAdapter<Nitros::NitrosCameraInfo, sensor_msgs::msg::CameraInfo>
-    ::convert_to_ros_message(msg.GetMessage(), color_camera_info);
-  } catch (const std::runtime_error & e) {
-    RCLCPP_ERROR(get_logger(), "Failed to convert color NitrosCameraInfo: %s", e.what());
-    return;
-  }
-
-  color_camera_info_ = color_camera_info;
+  color_camera_info_ = *msg;
 
   if (depth_image_buffer_.has_value() && depth_camera_info_.has_value()) {
     ComputeAndPublishAlignedDepth(
-      depth_image_buffer_.value(), depth_camera_info_.value(), color_camera_info_.value());
+      std::make_shared<Nitros::NitrosImage>(depth_image_buffer_.value()),
+      depth_camera_info_.value(), color_camera_info_.value());
     depth_image_buffer_.reset();
   }
 }

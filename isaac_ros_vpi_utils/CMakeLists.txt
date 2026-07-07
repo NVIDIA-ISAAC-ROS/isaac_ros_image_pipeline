@@ -40,6 +40,11 @@ if(BUILD_TESTING)
   set(ament_cmake_copyright_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
   find_package(launch_testing_ament_cmake REQUIRED)
+
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(vpi_utilities_test test/vpi_utilities_test.cpp)
+  target_link_libraries(vpi_utilities_test ${PROJECT_NAME})
+  ament_target_dependencies(vpi_utilities_test rclcpp)
 endif()
 
 

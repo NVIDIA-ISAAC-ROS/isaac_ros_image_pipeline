@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,18 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 # PointCloudNode
-ament_auto_add_library(point_cloud_node SHARED src/point_cloud_node.cpp)
+set_source_files_properties(src/point_cloud_cuda.cu.cpp PROPERTIES LANGUAGE CUDA)
+ament_auto_add_library(point_cloud_node SHARED
+  src/point_cloud_node.cpp
+  src/point_cloud_cuda.cu.cpp
+)
+
+# Option to set GXF compatibility mode at configure time
+option(NITROS_GXF_COMPAT_MODE "Enable GXF compatibility mode for Nitros types" ON)
+if(NITROS_GXF_COMPAT_MODE)
+  add_definitions(-DNITROS_GXF_COMPAT_MODE)
+endif()
+
 rclcpp_components_register_nodes(point_cloud_node "nvidia::isaac_ros::stereo_image_proc::PointCloudNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::PointCloudNode;$<TARGET_FILE:point_cloud_node>\n")
 set_target_properties(point_cloud_node PROPERTIES
@@ -44,7 +55,12 @@ set_target_properties(disparity_node PROPERTIES
   INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # DisparityToDepthNode
-ament_auto_add_library(disparity_to_depth_node SHARED src/disparity_to_depth_node.cpp)
+ament_auto_add_library(disparity_to_depth_node SHARED
+  src/disparity_to_depth_node.cpp
+  src/disparity_to_depth.cu.cpp
+)
+set_source_files_properties(src/disparity_to_depth.cu.cpp PROPERTIES LANGUAGE CUDA)
+# CUDA runtime is linked automatically by nvcc when compiling CUDA sources
 rclcpp_components_register_nodes(disparity_to_depth_node "nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode;$<TARGET_FILE:disparity_to_depth_node>\n")
 set_target_properties(disparity_to_depth_node PROPERTIES

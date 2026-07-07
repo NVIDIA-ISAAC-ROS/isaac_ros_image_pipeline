@@ -78,7 +78,7 @@ class IsaacROSImageFlipTest(IsaacROSBaseTest):
             image = JSONConversion.load_image_from_json(
                 test_folder / 'image.json')
             # Wait at most TIMEOUT seconds for subscriber to respond
-            TIMEOUT = 2
+            TIMEOUT = 30
             end_time = time.time() + TIMEOUT
 
             done = False

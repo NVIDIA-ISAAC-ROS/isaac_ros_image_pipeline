@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,17 +17,14 @@
 
 #pragma once
 
+#include <sstream>
+#include <string>
 #include <vector>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#include "gxf/multimedia/video.hpp"
-#pragma GCC diagnostic pop
 
 #include "rclcpp/rclcpp.hpp"
 #include "vpi/VPI.h"
+
+constexpr uint32_t VPI_BACKEND_JETSON = VPI_BACKEND_OFA | VPI_BACKEND_PVA | VPI_BACKEND_VIC;
 
 // VPI status check macro
 #define CHECK_VPI_STATUS(STMT) \
@@ -60,24 +57,52 @@ namespace vpi_utils
 */
 uint32_t DeclareVPIBackendParameter(rclcpp::Node * node, uint32_t default_backends) noexcept;
 
-/**
-* @brief Data structure to hold VPI format information
-*
-*/
+// Data structure to hold VPI format information
 struct VPIFormat
 {
   VPIImageFormat image_format;
   std::vector<VPIPixelType> pixel_type;
 };
 
-using VideoFormat = nvidia::gxf::VideoFormat;
 /**
-  * @brief Convert a GXF video format into VPI format
+  * @brief Convert a NitrosImage format into VPI format
   *
-  * @param value Input GXF VideoFormat
+  * @param value Input NitrosImage format
   * @return VPIFormat Resulting VPIFormat
   */
-VPIFormat ToVpiFormat(VideoFormat value);
+VPIFormat ToVpiFormat(const std::string & encoding);
+
+/**
+  * @brief Convert a string interpolation type into VPI interpolation type
+  *
+  * @param interp_type Input string interpolation type
+  * @return VPIInterpolationType Resulting VPI interpolation type
+  */
+VPIInterpolationType ToVpiInterpolationType(const std::string & interp_type);
+
+/**
+ * @brief Convert a string border type into VPI border type
+  *
+  * @param border_type Input string border type
+  * @return VPIBorderType Resulting VPI border type
+  */
+VPIBorderExtension ToVpiBorderType(const std::string & border_type);
+
+/**
+ * @brief Convert a string to a VPI backend
+ *
+ * @param backend Input string backend
+ * @return uint32_t Resulting VPI backend
+ */
+uint32_t ToVPIBackend(const std::string & backend);
+
+/**
+ * @brief VPI backend to string
+ *
+ * @param backend The VPI backend to convert
+ * @return std::string Resulting string
+ */
+std::string VPIBackendToString(uint32_t backend);
 }  // namespace vpi_utils
 }  // namespace isaac_ros
 }  // namespace nvidia

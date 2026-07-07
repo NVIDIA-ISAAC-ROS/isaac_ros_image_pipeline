@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,11 @@
 
 #include "isaac_ros_stereo_image_proc/disparity_to_depth_node.hpp"
 
+#include <cmath>
+
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_common/qos.hpp"
-
-#include "isaac_ros_nitros_disparity_image_type/nitros_disparity_image.hpp"
-#include "isaac_ros_nitros_image_type/nitros_image.hpp"
-
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
+#include "isaac_ros_stereo_image_proc/disparity_to_depth.cu.hpp"
 
 namespace nvidia
 {
@@ -32,89 +30,78 @@ namespace isaac_ros
 namespace stereo_image_proc
 {
 
-using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
-
-constexpr char INPUT_COMPONENT_KEY[] = "disparity_to_depth/disparity_input";
-constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_disparity_image_32FC1";
-constexpr char INPUT_TOPIC_NAME[] = "disparity";
-
-constexpr char OUTPUT_COMPONENT_KEY[] = "sink/sink";
-constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_32FC1";
-constexpr char OUTPUT_TOPIC_NAME[] = "depth";
-
-constexpr char APP_YAML_FILENAME[] = "config/nitros_disparity_to_depth_node.yaml";
-constexpr char PACKAGE_NAME[] = "isaac_ros_stereo_image_proc";
-
-const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
-  {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
-  {"isaac_ros_gxf", "gxf/lib/multimedia/libgxf_multimedia.so"},
-  {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"isaac_ros_gxf", "gxf/lib/serialization/libgxf_serialization.so"},
-  {"gxf_isaac_utils", "gxf/lib/libgxf_isaac_utils.so"},
-};
-const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
-  "isaac_ros_stereo_disparity",
-};
-const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
-const std::vector<std::string> GENERATOR_RULE_FILENAMES = {};
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
-  {INPUT_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = INPUT_DEFAULT_TENSOR_FORMAT,
-      .topic_name = INPUT_TOPIC_NAME,
-    }
-  },
-  {OUTPUT_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = OUTPUT_DEFAULT_TENSOR_FORMAT,
-      .topic_name = OUTPUT_TOPIC_NAME,
-      .frame_id_source_key = INPUT_COMPONENT_KEY
-    }
-  }
-};
-#pragma GCC diagnostic pop
-
 DisparityToDepthNode::DisparityToDepthNode(const rclcpp::NodeOptions & options)
-: nitros::NitrosNode(options,
-    APP_YAML_FILENAME,
-    CONFIG_MAP,
-    PRESET_EXTENSION_SPEC_NAMES,
-    EXTENSION_SPEC_FILENAMES,
-    GENERATOR_RULE_FILENAMES,
-    EXTENSIONS,
-    PACKAGE_NAME)
+: rclcpp::Node("disparity_to_depth_node", options),
+  memory_pool_block_size_{declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)},
+  memory_pool_num_blocks_{declare_parameter<int64_t>("memory_pool_num_blocks", 40)},
+  input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
+  output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")}
 {
   RCLCPP_DEBUG(get_logger(), "[DisparityToDepthNode] Constructor");
 
-  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
-  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
-    *this, "DEFAULT", "input_qos");
-  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
-    *this, "DEFAULT", "output_qos");
-  for (auto & config : config_map_) {
-    if (config.second.topic_name == INPUT_TOPIC_NAME) {
-      config.second.qos = input_qos_;
-    } else {
-      config.second.qos = output_qos_;
-    }
-  }
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  disparity_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosDisparityImage>(
+    "disparity", input_qos_, std::bind(&DisparityToDepthNode::DisparityToDepthCallback, this,
+      std::placeholders::_1), sub_options);
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  depth_pub_ = create_publisher<nvidia::isaac_ros::nitros::NitrosImage>(
+    "depth", output_qos_, pub_options);
 
-  registerSupportedType<nvidia::isaac_ros::nitros::NitrosDisparityImage>();
-  registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("DisparityToDepthNode");
 
-  startNitrosNode();
+  CHECK_CUDA_ERROR(pool_.create(
+    static_cast<size_t>(memory_pool_block_size_),
+    static_cast<size_t>(memory_pool_num_blocks_),
+    nvidia::isaac_ros::nitros::CUDAMemoryPool::MemoryType::Device),
+    "[DisparityToDepthNode] Failed to create CUDA memory pool");
+
+  RCLCPP_DEBUG(get_logger(), "[DisparityToDepthNode] Setup complete");
 }
 
 DisparityToDepthNode::~DisparityToDepthNode() {}
+
+void DisparityToDepthNode::DisparityToDepthCallback(
+  const nvidia::isaac_ros::nitros::NitrosDisparityImage::ConstSharedPtr & disparity_msg)
+{
+  RCLCPP_DEBUG(get_logger(), "[DisparityToDepthNode] DisparityToDepthCallback");
+  const uint32_t width = disparity_msg->get_width();
+  const uint32_t height = disparity_msg->get_height();
+  const float baseline = std::abs(disparity_msg->t);
+  const float focal_length = disparity_msg->f;
+
+  // Get read handle and device pointer for input disparity (32FC1)
+  auto disparity_read_handle = disparity_msg->get_read_handle(*cuda_stream_);
+  const float * disparity_ptr =
+    reinterpret_cast<const float *>(disparity_read_handle.get_ptr());
+
+  // Create output NitrosImage (depth, 32FC1) and get write handle
+  nvidia::isaac_ros::nitros::NitrosImage depth_image_msg;
+  auto depth_write_handle = depth_image_msg.from_pool(
+    pool_, width, height, width * sizeof(float), "32FC1", *cuda_stream_);
+  float * depth_ptr = reinterpret_cast<float *>(depth_write_handle.get_ptr());
+
+  // Convert disparity to depth on GPU
+  cudaError_t err = disparity_to_depth_cuda(
+    disparity_ptr, depth_ptr, baseline, focal_length,
+    static_cast<int>(height), static_cast<int>(width), *cuda_stream_);
+  if (err != cudaSuccess) {
+    RCLCPP_ERROR(get_logger(), "CUDA kernel launch failed: %s", cudaGetErrorString(err));
+    return;
+  }
+
+  // Copy metadata from disparity message
+  depth_image_msg.frame_id = disparity_msg->get_frame_id();
+  depth_image_msg.timestamp_sec = disparity_msg->get_timestamp_sec();
+  depth_image_msg.timestamp_nsec = disparity_msg->get_timestamp_nsec();
+
+  depth_pub_->publish(std::move(depth_image_msg));
+}
 
 }  // namespace stereo_image_proc
 }  // namespace isaac_ros
 }  // namespace nvidia
 
+#include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::stereo_image_proc::DisparityToDepthNode)

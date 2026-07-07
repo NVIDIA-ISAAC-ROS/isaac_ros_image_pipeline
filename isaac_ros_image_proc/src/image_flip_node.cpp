@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@
 
 #include "isaac_ros_image_proc/image_flip_node.hpp"
 
+#include <cuda_runtime.h>
 #include <string>
 
+#include "cvcuda/OpFlip.hpp"
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_common/qos.hpp"
-
-#include "isaac_ros_nitros_image_type/nitros_image.hpp"
+#include "isaac_ros_cvcuda_utils/cvcuda_utilities.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace nvidia
@@ -30,95 +32,72 @@ namespace isaac_ros
 {
 namespace image_proc
 {
-
-using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
-
-constexpr char INPUT_COMPONENT_KEY[] = "image_flip/data_receiver";
-constexpr char INPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_rgb8";
-constexpr char INPUT_TOPIC_NAME[] = "image";
-
-constexpr char OUTPUT_COMPONENT_KEY[] = "sink/sink";
-constexpr char OUTPUT_DEFAULT_TENSOR_FORMAT[] = "nitros_image_rgb8";
-constexpr char OUTPUT_TOPIC_NAME[] = "image_flipped";
-
-constexpr char APP_YAML_FILENAME[] = "config/nitros_image_flip_node.yaml";
-constexpr char PACKAGE_NAME[] = "isaac_ros_image_proc";
-
-const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
-  {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
-  {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
-  {"gxf_isaac_image_flip", "gxf/lib/libgxf_isaac_image_flip.so"},
-};
-const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
-  "isaac_ros_image_proc",
-};
-const std::vector<std::string> EXTENSION_SPEC_FILENAMES = {};
-const std::vector<std::string> GENERATOR_RULE_FILENAMES = {};
-const std::map<gxf::optimizer::ComponentKey, std::string> COMPATIBLE_DATA_FORMAT_MAP = {
-  {INPUT_COMPONENT_KEY, INPUT_DEFAULT_TENSOR_FORMAT},
-  {OUTPUT_COMPONENT_KEY, OUTPUT_DEFAULT_TENSOR_FORMAT}
-};
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-const nitros::NitrosPublisherSubscriberConfigMap CONFIG_MAP = {
-  {INPUT_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = INPUT_DEFAULT_TENSOR_FORMAT,
-      .topic_name = INPUT_TOPIC_NAME,
-      .use_compatible_format_only = false,
-    }
-  },
-  {OUTPUT_COMPONENT_KEY,
-    {
-      .type = nitros::NitrosPublisherSubscriberType::NEGOTIATED,
-      .qos = rclcpp::QoS(10),
-      .compatible_data_format = OUTPUT_DEFAULT_TENSOR_FORMAT,
-      .topic_name = OUTPUT_TOPIC_NAME,
-      .use_compatible_format_only = false,
-      .frame_id_source_key = INPUT_COMPONENT_KEY
-    }
-  }
-};
-#pragma GCC diagnostic pop
-
 ImageFlipNode::ImageFlipNode(const rclcpp::NodeOptions & options)
-: nitros::NitrosNode(options,
-    APP_YAML_FILENAME,
-    CONFIG_MAP,
-    PRESET_EXTENSION_SPEC_NAMES,
-    EXTENSION_SPEC_FILENAMES,
-    GENERATOR_RULE_FILENAMES,
-    EXTENSIONS,
-    PACKAGE_NAME),
-  flip_mode_(declare_parameter<std::string>("flip_mode", "BOTH"))
+: rclcpp::Node("image_flip_node", options),
+  flip_mode_(declare_parameter<std::string>("flip_mode", "BOTH")),
+  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
+  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
+  input_qos_(::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos", 10)),
+  output_qos_(::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos", 10))
 {
   RCLCPP_DEBUG(get_logger(), "[ImageFlipNode] Constructor");
 
-  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
-  rclcpp::QoS input_qos_ = ::isaac_ros::common::AddQosParameter(
-    *this, "DEFAULT", "input_qos");
-  rclcpp::QoS output_qos_ = ::isaac_ros::common::AddQosParameter(
-    *this, "DEFAULT", "output_qos");
-  for (auto & config : config_map_) {
-    if (config.second.topic_name == INPUT_TOPIC_NAME) {
-      config.second.qos = input_qos_;
-    } else {
-      config.second.qos = output_qos_;
-    }
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("ImageFlipNode");
+
+  // Create CUDA memory pool
+  cudaError_t err = pool_.create(
+    static_cast<size_t>(memory_pool_block_size_),
+    static_cast<size_t>(memory_pool_num_blocks_),
+    nvidia::isaac_ros::nitros::CUDAMemoryPool::MemoryType::Device);
+  if (err != cudaSuccess) {
+    RCLCPP_ERROR(get_logger(), "Failed to create CUDA memory pool: %s", cudaGetErrorString(err));
+    throw std::runtime_error("Failed to create CUDA memory pool");
   }
+  // Subscription options
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  // Publisher options
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
 
-  registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
-
-  startNitrosNode();
+  // Create subscribers and publishers
+  image_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosImage>(
+    "image", input_qos_,
+    std::bind(&ImageFlipNode::imageSubCallback, this, std::placeholders::_1), sub_options);
+  image_pub_ = create_publisher<nvidia::isaac_ros::nitros::NitrosImage>(
+    "image_flipped", output_qos_, pub_options);
 }
 
-void ImageFlipNode::postLoadGraphCallback()
+ImageFlipNode::~ImageFlipNode() {}
+
+void ImageFlipNode::imageSubCallback(const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr msg)
 {
-  RCLCPP_INFO(get_logger(), "[ImageFlipNode] postLoadGraphCallback().");
-  getNitrosContext().setParameterStr(
-    "image_flip", "nvidia::isaac_ros::ImageFlip", "mode", flip_mode_);
+  const int num_channels{sensor_msgs::image_encodings::numChannels(msg->encoding)};
+  const int bytes_per_channel = sensor_msgs::image_encodings::bitDepth(msg->encoding) / CHAR_BIT;
+  const cvcuda_utils::NVCVImageFormat format = cvcuda_utils::ToNVCVFormat(msg->encoding);
+  RCLCPP_DEBUG(get_logger(),
+    "[ImageFlipNode] Input width: %d, height: %d, num_channels: %d, bytes_per_channel: %d",
+    msg->width, msg->height, num_channels, bytes_per_channel);
+  auto input_handle = cvcuda_utils::WrapCVCUDATensor(
+    *msg, msg->get_read_handle(*cuda_stream_),
+    format.format, num_channels, bytes_per_channel);
+
+  auto output_msg = std::make_unique<nvidia::isaac_ros::nitros::NitrosImage>();
+  auto output_write_handle = output_msg->from_pool(
+    pool_, msg->width, msg->height, msg->step, msg->encoding, *cuda_stream_);
+  auto output_handle = cvcuda_utils::WrapCVCUDATensor(
+    *output_msg, std::move(output_write_handle), format.format, num_channels, bytes_per_channel);
+
+  // Execute flip operation
+  int32_t flip_flag = cvcuda_utils::ToNVCVFlipMode(flip_mode_);
+  flip_op_(*cuda_stream_, input_handle.get_tensor(), output_handle.get_tensor(), flip_flag);
+
+  output_msg->timestamp_sec = msg->timestamp_sec;
+  output_msg->timestamp_nsec = msg->timestamp_nsec;
+  output_msg->frame_id = msg->frame_id;
+
+  // Publish output image
+  image_pub_->publish(std::move(output_msg));
 }
 
 }  // namespace image_proc

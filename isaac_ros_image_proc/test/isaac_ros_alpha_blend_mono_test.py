@@ -89,7 +89,7 @@ class IsaacROSAlphaBlendMonoTest(IsaacROSBaseTest):
         - Green values 0.7 * 100 + 0.3 * 200 = 70 + 60 = 130.
         - Red values 0.7 * 200 + 0.3 * 200 = 140 + 60 = 200.
         """
-        TIMEOUT = 300
+        TIMEOUT = 60
         received_messages = {}
 
         self.generate_namespace_lookup(['image_input', 'mask_input', 'blended_image'])
