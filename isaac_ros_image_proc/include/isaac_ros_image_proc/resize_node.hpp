@@ -18,9 +18,6 @@
 #define ISAAC_ROS_IMAGE_PROC__RESIZE_NODE_HPP_
 
 #include <string>
-#include <chrono>
-#include <utility>
-#include <vector>
 
 #include "message_filters/subscriber.h"
 #include "message_filters/synchronizer.h"
@@ -31,10 +28,10 @@
 #include "isaac_ros_cvcuda_utils/cvcuda_handle.hpp"
 #include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
 #include "isaac_ros_nitros/types/nitros_type_message_filter_traits.hpp"
-#include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
 #include "nvcv/Tensor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 
 namespace nvidia
 {
@@ -78,7 +75,6 @@ private:
   int64_t input_queue_size_;
   int64_t output_queue_size_;
 
-  // Subscriptions and publishers
   message_filters::Subscriber<nvidia::isaac_ros::nitros::NitrosImage> image_sub_;
   message_filters::Subscriber<sensor_msgs::msg::CameraInfo> camera_info_sub_;
   rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosImage>::SharedPtr image_pub_;

@@ -32,12 +32,6 @@ ament_auto_add_library(point_cloud_node SHARED
   src/point_cloud_cuda.cu.cpp
 )
 
-# Option to set GXF compatibility mode at configure time
-option(NITROS_GXF_COMPAT_MODE "Enable GXF compatibility mode for Nitros types" ON)
-if(NITROS_GXF_COMPAT_MODE)
-  add_definitions(-DNITROS_GXF_COMPAT_MODE)
-endif()
-
 rclcpp_components_register_nodes(point_cloud_node "nvidia::isaac_ros::stereo_image_proc::PointCloudNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::stereo_image_proc::PointCloudNode;$<TARGET_FILE:point_cloud_node>\n")
 set_target_properties(point_cloud_node PROPERTIES
