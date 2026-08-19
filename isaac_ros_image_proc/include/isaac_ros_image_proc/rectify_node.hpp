@@ -33,11 +33,11 @@
 #include "isaac_ros_cvcuda_utils/cvcuda_handle.hpp"
 #include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
 #include "isaac_ros_nitros/types/nitros_type_message_filter_traits.hpp"
-#include "isaac_ros_nitros_camera_info_type/nitros_camera_info.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
 #include "nvcv/Tensor.hpp"
 #include "opencv2/calib3d.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 
 namespace nvidia
 {

@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 #include <cuda_runtime.h>
 
+#include <cstdio>
+#include <cstdlib>
 #include <memory>
 
 #include "isaac_ros_cvcuda_utils/cvcuda_handle.hpp"
@@ -404,5 +406,10 @@ TEST_F(CVCUDATensorHandleTest, PackedEncodingHeightUnchanged)
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  const int test_result = RUN_ALL_TESTS();
+  // Workaround for EGL libraries included in VPI not tearing down
+  // (tests pass, then a double-free corrupts the heap during static destruction).
+  // Flush output and _Exit to skip global destructors and bypass the teardown abort.
+  std::fflush(nullptr);
+  std::_Exit(test_result);
 }

@@ -130,8 +130,9 @@ ImageFormatConverterNode::ImageFormatConverterNode(const rclcpp::NodeOptions & o
     throw std::invalid_argument("memory_pool_num_blocks must be positive");
   }
 
-  // check if the encoding is supported
-  if (!encoding_desired_.empty()) {
+  // check if the encoding is supported. Multiplanar outputs (e.g. nv12) are not in
+  // the packed-format table, so validate them separately and skip the packed check.
+  if (!encoding_desired_.empty() && !cvcuda_utils::IsMultiplanarEncoding(encoding_desired_)) {
     try {
       const cvcuda_utils::NVCVImageFormat format = cvcuda_utils::ToNVCVFormat(encoding_desired_);
     } catch (const std::invalid_argument & e) {
@@ -215,6 +216,22 @@ void ImageFormatConverterNode::imageSubCallback(const NitrosImage::SharedPtr msg
     return;
   }
 
+  // mono8 -> nv12: CV-CUDA exposes no GRAY->NV12 conversion, so handle it directly
+  // via a luma Y-plane copy plus a neutral chroma fill. This is the inverse of the
+  // NV12->MONO8 path in convertMultiplanar() and lets infrared (mono8) streams feed
+  // the H.264 encoder's native NV12 input.
+  if (encoding_desired_ == cvcuda_utils::kEncodingNV12) {
+    if (input_encoding == sensor_msgs::image_encodings::MONO8) {
+      convertMono8ToNV12(msg);
+      return;
+    }
+    RCLCPP_ERROR(get_logger(),
+      "Conversion to nv12 is only supported from mono8 input, got '%s'",
+      input_encoding.c_str());
+    throw std::invalid_argument(
+            "Unsupported conversion to nv12 from input encoding: " + input_encoding);
+  }
+
   // Packed-format path (rgb8, bgr8, mono8, etc.)
   cvcuda_utils::NVCVImageFormat input_format;
   try {
@@ -295,6 +312,65 @@ void ImageFormatConverterNode::convertMultiplanar(const NitrosImage::SharedPtr &
   adv_cvt_color_op_(
     *cuda_stream_, input_handle.get_tensor(), output_handle.get_tensor(),
     conversion_code, yuv_color_spec_);
+
+  publishOutput(std::move(output_msg), *msg);
+}
+
+void ImageFormatConverterNode::convertMono8ToNV12(const NitrosImage::SharedPtr & msg)
+{
+  // mono8 luma maps directly onto the NV12 Y plane, so no color-space conversion is
+  // needed: copy the input into the Y plane and fill the chroma plane with neutral
+  // 0x80. CV-CUDA does not expose a GRAY->NV12 code, mirroring the NV12->MONO8 case
+  // above which is also hand-written.
+  RCLCPP_DEBUG(get_logger(),
+    "[ImageFormatConverterNode] mono8 input: %dx%d -> nv12", msg->width, msg->height);
+
+  auto read_handle = msg->get_read_handle(*cuda_stream_);
+  const uint8_t * src = read_handle.get_ptr();
+  if (src == nullptr) {
+    RCLCPP_ERROR(get_logger(), "mono8->NV12 failed: input buffer pointer is null");
+    throw std::runtime_error("mono8->NV12 failed: input buffer pointer is null");
+  }
+
+  // Compact NV12 layout: the Y plane stride equals the width (1 byte/pixel luma).
+  // NitrosImage rejects odd dimensions for nv12, matching the 4:2:0 requirement.
+  auto output_msg = std::make_unique<NitrosImage>();
+  auto write_handle = output_msg->from_pool(
+    pool_, msg->width, msg->height, msg->width, cvcuda_utils::kEncodingNV12, *cuda_stream_);
+  uint8_t * dst = write_handle.get_ptr();
+  if (dst == nullptr) {
+    RCLCPP_ERROR(get_logger(), "mono8->NV12 failed: output buffer pointer is null");
+    throw std::runtime_error("mono8->NV12 failed: output buffer pointer is null");
+  }
+
+  const auto & y_plane = output_msg->get_plane(0);
+  const auto & uv_plane = output_msg->get_plane(1);
+
+  // Copy the mono8 luma into the Y plane (honoring input/output row strides).
+  cudaError_t err = cudaMemcpy2DAsync(
+    dst + y_plane.offset, y_plane.stride,
+    src, msg->step,
+    msg->width, msg->height,
+    cudaMemcpyDeviceToDevice, *cuda_stream_);
+  if (err != cudaSuccess) {
+    RCLCPP_ERROR(get_logger(), "mono8->NV12 Y-plane cudaMemcpy2DAsync failed: %s",
+      cudaGetErrorString(err));
+    throw std::runtime_error(
+            std::string("mono8->NV12 Y-plane cudaMemcpy2DAsync failed: ") +
+            cudaGetErrorString(err));
+  }
+
+  // Fill the interleaved UV plane with 0x80 (neutral chroma) for a true grayscale frame.
+  err = cudaMemset2DAsync(
+    dst + uv_plane.offset, uv_plane.stride,
+    0x80, static_cast<size_t>(uv_plane.width) * 2, uv_plane.height, *cuda_stream_);
+  if (err != cudaSuccess) {
+    RCLCPP_ERROR(get_logger(), "mono8->NV12 UV-plane cudaMemset2DAsync failed: %s",
+      cudaGetErrorString(err));
+    throw std::runtime_error(
+            std::string("mono8->NV12 UV-plane cudaMemset2DAsync failed: ") +
+            cudaGetErrorString(err));
+  }
 
   publishOutput(std::move(output_msg), *msg);
 }

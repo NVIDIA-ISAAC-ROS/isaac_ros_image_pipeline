@@ -119,7 +119,7 @@ ResizeNode::ResizeNode(const rclcpp::NodeOptions & options)
   output_queue_size_(declare_parameter<int64_t>("output_queue_size", 10)),
   image_sub_{},
   camera_info_sub_{},
-  exact_sync_{ExactPolicy(input_queue_size_), image_sub_, camera_info_sub_}
+  exact_sync_{ExactPolicy(static_cast<uint32_t>(input_queue_size_)), image_sub_, camera_info_sub_}
 {
   RCLCPP_DEBUG(get_logger(), "[ResizeNode] Constructor");
 

@@ -44,7 +44,9 @@ def generate_launch_description():
         plugin='nvidia::isaac_ros::stereo_image_proc::PointCloudNode',
         parameters=[{
                 'use_color': True,
-                'unit_scaling': 1.0
+                'unit_scaling': 1.0,
+                # 1920 * 1200 resolution, 4 float fields per XYZRGB point, 4 bytes per float.
+                'memory_pool_block_size': 1920 * 1200 * 4 * 4,
         }],
         remappings=[('left/image_rect_color', 'front_stereo_camera/left/image_rect_color'),
                     ('left/camera_info', 'front_stereo_camera/left/camera_info'),

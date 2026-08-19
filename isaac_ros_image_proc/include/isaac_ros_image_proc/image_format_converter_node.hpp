@@ -57,6 +57,7 @@ public:
 private:
   void imageSubCallback(const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr msg);
   void convertMultiplanar(const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr & msg);
+  void convertMono8ToNV12(const nvidia::isaac_ros::nitros::NitrosImage::SharedPtr & msg);
 
   std::pair<std::unique_ptr<nvidia::isaac_ros::nitros::NitrosImage>, OutputTensorHandle>
   allocateOutput(const nvidia::isaac_ros::nitros::NitrosImage & msg);

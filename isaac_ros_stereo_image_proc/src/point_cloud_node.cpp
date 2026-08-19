@@ -41,7 +41,11 @@ PointCloudNode::PointCloudNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("point_cloud_node", options),
   use_color_(declare_parameter<bool>("use_color", false)),
   unit_scaling_(declare_parameter<float>("unit_scaling", 1.0)),
-  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
+  // 1920 * 1200 resolution, 4 XYZRGB or 3 XYZ float fields, 4 bytes per float.
+  memory_pool_block_size_(declare_parameter<int64_t>(
+      "memory_pool_block_size",
+      static_cast<int64_t>(1920) * 1200 * (use_color_ ? 4 : 3) *
+      static_cast<int64_t>(sizeof(float)))),
   memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
   input_queue_size_(declare_parameter<int64_t>("input_queue_size", 10)),
   output_queue_size_(declare_parameter<int64_t>("output_queue_size", 10)),
