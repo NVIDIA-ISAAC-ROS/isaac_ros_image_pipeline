@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>pointcloud_conversions</name>
-  <version>5.0.0</version>
+  <version>5.1.0</version>
   <description>
     Header-only helpers for producing and consuming sensor_msgs/PointCloud2
     messages backed by CUDA device memory via the registered rosidl::Buffer
