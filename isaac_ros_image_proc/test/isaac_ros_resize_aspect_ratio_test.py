@@ -27,12 +27,8 @@ import pytest
 import rclpy
 from sensor_msgs.msg import CameraInfo, Image
 
-USE_RELATIVE_SCALE = True
-SCALE_HEIGHT = 2.0
-SCALE_WIDTH = 3.0
-HEIGHT = 20
-WIDTH = 30
-BACKENDS = 'CUDA'
+OUTPUT_HEIGHT = 920
+OUTPUT_WIDTH = 1380
 
 
 @pytest.mark.rostest
@@ -45,12 +41,9 @@ def generate_test_description():
             name='resize_node',
             namespace=IsaacROSResizeAspectRatioTest.generate_namespace(),
             parameters=[{
-                    'use_relative_scale': USE_RELATIVE_SCALE,
-                    'scale_height': SCALE_HEIGHT,
-                    'scale_width': SCALE_WIDTH,
-                    'height': HEIGHT,
-                    'width': WIDTH,
-                    'backends': BACKENDS,
+                'output_height': OUTPUT_HEIGHT,
+                'output_width': OUTPUT_WIDTH,
+                'keep_aspect_ratio': False,
             }])]
 
     resize_container = launch_ros.actions.ComposableNodeContainer(
@@ -73,11 +66,11 @@ class IsaacROSResizeAspectRatioTest(IsaacROSBaseTest):
     @IsaacROSBaseTest.for_each_test_case(subfolder='resize')
     def test_resize_image_forwarded(self, test_folder) -> None:
         """Expect the image to be resized into a different aspect ratio."""
-        self.generate_namespace_lookup(['image', 'camera_info', 'resized/image'])
+        self.generate_namespace_lookup(['image', 'camera_info', 'resize/image'])
         received_messages = {}
 
         resized_image_sub, = self.create_logging_subscribers(
-            subscription_requests=[('resized/image', Image)],
+            subscription_requests=[('resize/image', Image)],
             received_messages=received_messages
         )
 
@@ -91,6 +84,8 @@ class IsaacROSResizeAspectRatioTest(IsaacROSBaseTest):
                 test_folder / 'image.json')
             camera_info = JSONConversion.load_camera_info_from_json(
                 test_folder / 'camera_info.json')
+            self.assertNotEqual(image.width * OUTPUT_HEIGHT, image.height * OUTPUT_WIDTH,
+                                'Test output must have a different aspect ratio from the input')
 
             # Wait at most TIMEOUT seconds for subscriber to respond
             TIMEOUT = 30
@@ -110,20 +105,19 @@ class IsaacROSResizeAspectRatioTest(IsaacROSBaseTest):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 # If we have received a message on the output topic, break
-                if 'resized/image' in received_messages:
+                if 'resize/image' in received_messages:
                     done = True
                     break
 
-            self.assertTrue(done, "Didn't receive output on resized/image topic!")
+            self.assertTrue(done, "Didn't receive output on resize/image topic!")
 
-            resized_image = received_messages['resized/image']
+            resized_image = received_messages['resize/image']
 
             # Make sure that the output image size is set to desired dimensions
-            desired_height = image.height * SCALE_HEIGHT if USE_RELATIVE_SCALE else HEIGHT
-            desired_width = image.width * SCALE_WIDTH if USE_RELATIVE_SCALE else WIDTH
-            self.assertEqual(resized_image.height, desired_height,
-                             f'Height is not {desired_height}!')
-            self.assertEqual(resized_image.width, desired_width, f'Width is not {desired_width}!')
+            self.assertEqual(resized_image.height, OUTPUT_HEIGHT,
+                             f'Height is not {OUTPUT_HEIGHT}!')
+            self.assertEqual(resized_image.width, OUTPUT_WIDTH,
+                             f'Width is not {OUTPUT_WIDTH}!')
 
         finally:
             self.node.destroy_subscription(resized_image_sub)

@@ -35,7 +35,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 target_link_libraries(${PROJECT_NAME} INTERFACE
   ${cuda_buffer_TARGETS}
   ${sensor_msgs_TARGETS}
-  isaac_ros_tensor_msgs::isaac_ros_tensor_msgs
+  ${isaac_ros_tensor_msgs_TARGETS}
   tensor_msgs::tensor_msgs
 )
 

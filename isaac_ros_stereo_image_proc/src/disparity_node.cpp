@@ -121,7 +121,8 @@ bool DisparityNode::initialize()
     nvidia::isaac_ros::vpi_utils::VPIBackendToString(
         static_cast<VPIBackend>(impl_.vpi_backends)).c_str());
 
-  impl_.vpi_flags = impl_.vpi_backends;
+  // Image conversions use CUDA even when stereo estimation runs on Jetson accelerators.
+  impl_.vpi_flags = impl_.vpi_backends | VPI_BACKEND_CUDA;
   CHECK_VPI_STATUS(vpiInitStereoDisparityEstimatorCreationParams(&impl_.disparity_params));
   impl_.disparity_params.maxDisparity = static_cast<int32_t>(max_disparity_);
 

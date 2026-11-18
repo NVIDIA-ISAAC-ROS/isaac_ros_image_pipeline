@@ -16,7 +16,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.22.1)
-project(isaac_ros_depth_image_proc CUDA CXX)
+project(isaac_ros_depth_image_proc LANGUAGES CXX)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -24,6 +24,10 @@ endif()
 
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
+
+# Load isaac_ros_common's supported CUDA architectures before enabling CUDA;
+# otherwise CMake's compiler default prevents the platform defaults from applying.
+enable_language(CUDA)
 
 # Ensure CUDA imported targets (e.g., CUDA::nvtx3) are available
 find_package(CUDAToolkit REQUIRED)
@@ -38,6 +42,42 @@ if(USE_NVTX)
     link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
     link_libraries("CUDA::nvtx3")
 endif()
+
+# Internal CUDA validation, back-projection, scan, and stable compaction for masked clouds. The
+# static archive uses PIC because it is linked into the shared host-facing builder.
+add_library(depth_mask_to_point_cloud_cu STATIC
+  src/depth_mask_to_point_cloud.cu)
+target_compile_features(depth_mask_to_point_cloud_cu PUBLIC cxx_std_17)
+target_include_directories(depth_mask_to_point_cloud_cu PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+target_link_libraries(depth_mask_to_point_cloud_cu PUBLIC CUDA::cudart)
+set_target_properties(depth_mask_to_point_cloud_cu PROPERTIES
+  CUDA_STANDARD 17
+  CUDA_STANDARD_REQUIRED ON
+  CUDA_EXTENSIONS OFF
+  POSITION_INDEPENDENT_CODE ON)
+
+# Host-facing builder for ROS validation, CPU/CUDA ingress, and CUDA-backed PointCloud2 allocation.
+ament_auto_add_library(depth_mask_to_point_cloud SHARED
+  src/depth_mask_to_point_cloud.cpp)
+target_compile_features(depth_mask_to_point_cloud PUBLIC cxx_std_17)
+target_link_libraries(
+  depth_mask_to_point_cloud
+  depth_mask_to_point_cloud_cu
+  CUDA::cudart)
+
+# Masked XYZ component backed by the shared builder.
+ament_auto_add_library(point_cloud_xyz_masked_node SHARED
+  src/point_cloud_xyz_masked_node.cpp)
+target_link_libraries(
+  point_cloud_xyz_masked_node
+  depth_mask_to_point_cloud)
+rclcpp_components_register_nodes(
+  point_cloud_xyz_masked_node
+  "nvidia::isaac_ros::depth_image_proc::PointCloudXYZMaskedNode")
+set(node_plugins
+  "${node_plugins}nvidia::isaac_ros::depth_image_proc::PointCloudXYZMaskedNode;$<TARGET_FILE:point_cloud_xyz_masked_node>\n")
 
 # PointCloudXyzNode
 ament_auto_add_library(point_cloud_xyz_node SHARED
@@ -106,6 +146,7 @@ set_source_files_properties(
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 
@@ -115,6 +156,30 @@ if(BUILD_TESTING)
   endif()
 
   find_package(launch_testing_ament_cmake REQUIRED)
+
+  # GPU tests cover the host builder, direct CUDA contract, and in-process ROS component behavior.
+  ament_add_gtest(
+    test_depth_mask_to_point_cloud
+    test/test_depth_mask_to_point_cloud.cpp)
+  target_link_libraries(
+    test_depth_mask_to_point_cloud
+    depth_mask_to_point_cloud
+    CUDA::cudart)
+  ament_add_gtest(
+    test_depth_mask_to_point_cloud_cuda
+    test/test_depth_mask_to_point_cloud_cuda.cpp)
+  target_link_libraries(
+    test_depth_mask_to_point_cloud_cuda
+    depth_mask_to_point_cloud_cu
+    CUDA::cudart)
+  ament_add_gtest(
+    test_point_cloud_xyz_masked_node
+    test/test_point_cloud_xyz_masked_node.cpp)
+  target_link_libraries(
+    test_point_cloud_xyz_masked_node
+    point_cloud_xyz_masked_node
+    CUDA::cudart)
+
   add_launch_test(test/isaac_ros_depth_image_proc_align_depth_to_color_pol.py)
   add_launch_test(test/isaac_ros_depth_image_proc_point_cloud_xyz_pol.py)
   add_launch_test(test/isaac_ros_depth_image_proc_point_cloud_xyz_OSS_compare.py)
