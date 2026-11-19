@@ -209,13 +209,24 @@ void RectifyNode::InitRemapMapAndOutputCameraInfo(
     "[RectifyNode] cudaStreamSynchronize for remap map failed");
   remap_map_ = WrapOpencvCVMapToCVCUDATensor(remap_map, map_buffer_);
 
-  // Save output camera info
+  // Save output camera info. The map is built at the input size, and the remap
+  // samples it at (x * width / output_width, y * height / output_height) for
+  // output pixel (x, y), so the intrinsics are scaled by output / input size.
+  const double scale_x = static_cast<double>(output_width_) / camera_info.width;
+  const double scale_y = static_cast<double>(output_height_) / camera_info.height;
   cached_output_camera_info_ = camera_info;
+  cached_output_camera_info_.width = static_cast<uint32_t>(output_width_);
+  cached_output_camera_info_.height = static_cast<uint32_t>(output_height_);
   cached_output_camera_info_.d = {0.0, 0.0, 0.0, 0.0, 0.0};
-  cached_output_camera_info_.k[0] = new_intrinsics(0, 0);  // fx
-  cached_output_camera_info_.k[2] = new_intrinsics(0, 2);  // cx
-  cached_output_camera_info_.k[4] = new_intrinsics(1, 1);  // fy
-  cached_output_camera_info_.k[5] = new_intrinsics(1, 2);  // cy
+  cached_output_camera_info_.k[0] = new_intrinsics(0, 0) * scale_x;  // fx
+  cached_output_camera_info_.k[2] = new_intrinsics(0, 2) * scale_x;  // cx
+  cached_output_camera_info_.k[4] = new_intrinsics(1, 1) * scale_y;  // fy
+  cached_output_camera_info_.k[5] = new_intrinsics(1, 2) * scale_y;  // cy
+  // Scale the first two rows of P (fx', cx', Tx and fy', cy', Ty) the same way.
+  for (size_t i = 0; i < 4; ++i) {
+    cached_output_camera_info_.p[i] *= scale_x;
+    cached_output_camera_info_.p[4 + i] *= scale_y;
+  }
 }
 
 void RectifyNode::InputCallback(
